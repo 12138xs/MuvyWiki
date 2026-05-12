@@ -270,8 +270,9 @@ def check_required_paths(root: Path, issues: list[Issue]) -> None:
             issues.append(Issue(rel, "missing required path"))
 
 
-def check_wiki_pages(root: Path, issues: list[Issue]) -> set[str]:
-    canonical_ids: set[str] = set()
+def check_wiki_pages(root: Path, issues: list[Issue]) -> dict[str, str]:
+    seen_canonical_ids: set[str] = set()
+    canonical_paths: dict[str, str] = {}
     aliases: dict[str, str] = {}
     for path in collect_wiki_pages(root):
         rel = path.relative_to(root).as_posix()
@@ -284,10 +285,14 @@ def check_wiki_pages(root: Path, issues: list[Issue]) -> set[str]:
         canonical_id = frontmatter.get("canonical_id")
         if not canonical_id:
             issues.append(Issue(rel, "missing canonical_id"))
-        elif canonical_id != path.stem:
-            issues.append(Issue(rel, "canonical_id must match file stem"))
         else:
-            canonical_ids.add(canonical_id)
+            if canonical_id in seen_canonical_ids:
+                issues.append(Issue(rel, f"duplicate canonical_id: {canonical_id}"))
+            seen_canonical_ids.add(canonical_id)
+            if canonical_id != path.stem:
+                issues.append(Issue(rel, "canonical_id must match file stem"))
+            else:
+                canonical_paths.setdefault(canonical_id, rel)
         if not frontmatter.get("type"):
             issues.append(Issue(rel, "missing type"))
         if not content_after_frontmatter(text):
@@ -299,7 +304,7 @@ def check_wiki_pages(root: Path, issues: list[Issue]) -> set[str]:
                 owner = aliases.setdefault(alias, canonical_id)
                 if owner != canonical_id:
                     issues.append(Issue(rel, f"alias collision: {alias}"))
-    return canonical_ids
+    return canonical_paths
 
 
 def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, object]], issues: list[Issue]) -> None:
@@ -333,7 +338,7 @@ def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, ob
                 issues.append(Issue(rel, f"manifest raw_path does not exist: {raw_path}"))
 
 
-def check_index(root: Path, canonical_ids: set[str], issues: list[Issue]) -> None:
+def check_index(root: Path, canonical_paths: dict[str, str], issues: list[Issue]) -> None:
     index_path = root / "wiki" / "index.md"
     if not index_path.exists():
         return
@@ -348,15 +353,23 @@ def check_index(root: Path, canonical_ids: set[str], issues: list[Issue]) -> Non
             continue
         indexed_id = match.group("id")
         indexed_ids[indexed_id] = indexed_ids.get(indexed_id, 0) + 1
-        if indexed_id not in canonical_ids:
+        expected_path = canonical_paths.get(indexed_id)
+        if expected_path is None:
             issues.append(Issue("wiki/index.md", f"index entry for unknown page id: {indexed_id}"))
         listed_path = root / match.group("path")
         if not listed_path.exists():
             issues.append(Issue("wiki/index.md", f"indexed path does not exist: {match.group('path')}"))
+        elif expected_path is not None and match.group("path") != expected_path:
+            issues.append(
+                Issue(
+                    "wiki/index.md",
+                    f"index entry for {indexed_id} points to {match.group('path')}, expected {expected_path}",
+                )
+            )
     for indexed_id, count in sorted(indexed_ids.items()):
         if count > 1:
             issues.append(Issue("wiki/index.md", f"duplicate index entry for {indexed_id}"))
-    for canonical_id in sorted(canonical_ids):
+    for canonical_id in sorted(canonical_paths):
         if canonical_id not in indexed_ids:
             issues.append(Issue("wiki/index.md", f"missing index entry for {canonical_id}"))
 
@@ -385,9 +398,10 @@ def run(root: Path) -> list[Issue]:
     issues: list[Issue] = []
     check_required_paths(root, issues)
     manifest_entries = load_manifest(root, issues)
-    canonical_ids = check_wiki_pages(root, issues)
+    canonical_paths = check_wiki_pages(root, issues)
+    canonical_ids = set(canonical_paths)
     check_source_provenance(root, manifest_entries, issues)
-    check_index(root, canonical_ids, issues)
+    check_index(root, canonical_paths, issues)
     check_log(root, issues)
     check_wikilinks(root, canonical_ids, issues)
     return issues

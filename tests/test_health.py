@@ -177,6 +177,53 @@ provenance:
         self.assertEqual(result.returncode, 1)
         self.assertIn("duplicate index entry for source-one", result.stdout)
 
+    def test_index_entry_path_must_match_canonical_page(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            index_path = temp / "wiki/index.md"
+            index_path.write_text(
+                index_path.read_text(encoding="utf-8").replace(
+                    "- [[source-one|Source One]] (`wiki/sources/source-one.md`) - type: source - updated: 2026-05-12 - Test source.",
+                    "- [[source-one|Source One]] (`wiki/overview.md`) - type: source - updated: 2026-05-12 - Test source.",
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(
+            "index entry for source-one points to wiki/overview.md, expected wiki/sources/source-one.md",
+            result.stdout,
+        )
+
+    def test_duplicate_canonical_ids_across_wiki_pages_fail(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            (temp / "wiki/concepts/source-one.md").write_text(
+                """---
+canonical_id: "source-one"
+type: concept
+title: "Source One Concept"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths: []
+created: 2026-05-12
+last_updated: 2026-05-12
+status: seed
+confidence: medium
+---
+
+# Source One Concept
+""",
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("duplicate canonical_id: source-one", result.stdout)
+
     def test_source_provenance_mismatch_with_manifest_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)
