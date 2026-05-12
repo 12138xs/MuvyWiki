@@ -41,6 +41,170 @@ class HealthToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("missing required path", result.stdout)
 
+    def write_minimal_repo(self, root):
+        for rel in (
+            "raw/originals",
+            "raw/converted",
+            "wiki/sources",
+            "wiki/concepts",
+            "wiki/entities",
+            "wiki/syntheses",
+            "templates",
+            "tools",
+            "graph",
+        ):
+            (root / rel).mkdir(parents=True, exist_ok=True)
+        for rel in (
+            ".gitignore",
+            "README.md",
+            "AGENTS.md",
+            "raw/README.md",
+            "templates/overview.md",
+            "templates/index-entry.md",
+            "templates/log-entry.md",
+            "templates/source.md",
+            "templates/concept.md",
+            "templates/entity.md",
+            "templates/synthesis.md",
+            "tools/health.py",
+            "tools/lint.py",
+            "tools/build_graph.py",
+            "tools/convert.py",
+            "graph/README.md",
+        ):
+            (root / rel).write_text("placeholder\n", encoding="utf-8")
+        (root / "raw/originals/source-one.txt").write_text("source body\n", encoding="utf-8")
+        (root / "raw/source-manifest.jsonl").write_text(
+            json.dumps(
+                {
+                    "source_id": "source-one",
+                    "raw_path": "raw/originals/source-one.txt",
+                    "content_hash": "sha256:abc123",
+                    "source_url": None,
+                    "collected_at": "2026-05-12",
+                    "published_at": None,
+                    "converted_from": None,
+                    "converted_path": None,
+                    "converter": None,
+                    "converter_version": None,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (root / "wiki/overview.md").write_text(
+            """---
+canonical_id: "overview"
+type: overview
+title: "Overview"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths: []
+created: 2026-05-12
+last_updated: 2026-05-12
+status: seed
+confidence: medium
+---
+
+# Overview
+""",
+            encoding="utf-8",
+        )
+        (root / "wiki/sources/source-one.md").write_text(
+            """---
+canonical_id: "source-one"
+type: source
+title: "Source One"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths:
+  - "raw/originals/source-one.txt"
+created: 2026-05-12
+last_updated: 2026-05-12
+status: seed
+confidence: medium
+provenance:
+  source_id: "source-one"
+  raw_path: "raw/originals/source-one.txt"
+  content_hash: "sha256:abc123"
+  source_url: null
+  collected_at: "2026-05-12"
+  published_at: null
+  converted_from: null
+  converted_path: null
+  converter: null
+  converter_version: null
+---
+
+# Source One
+""",
+            encoding="utf-8",
+        )
+        (root / "wiki/index.md").write_text(
+            """# MuvyWiki Index
+
+## Overview
+
+- [[overview|Overview]] (`wiki/overview.md`) - type: overview - updated: 2026-05-12 - Living map.
+
+## Sources
+
+- [[source-one|Source One]] (`wiki/sources/source-one.md`) - type: source - updated: 2026-05-12 - Test source.
+""",
+            encoding="utf-8",
+        )
+        (root / "wiki/log.md").write_text(
+            """# MuvyWiki Log
+
+## [2026-05-12] init | fixture
+""",
+            encoding="utf-8",
+        )
+
+    def test_duplicate_index_entry_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            with (temp / "wiki/index.md").open("a", encoding="utf-8") as index_file:
+                index_file.write(
+                    "\n- [[source-one|Source One Again]] (`wiki/sources/source-one.md`) - type: source - updated: 2026-05-12 - Duplicate.\n"
+                )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("duplicate index entry for source-one", result.stdout)
+
+    def test_source_provenance_mismatch_with_manifest_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            text = (temp / "wiki/sources/source-one.md").read_text(encoding="utf-8")
+            (temp / "wiki/sources/source-one.md").write_text(
+                text.replace('content_hash: "sha256:abc123"', 'content_hash: "sha256:different"'),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("provenance content_hash does not match manifest", result.stdout)
+
+    def test_invalid_frontmatter_list_and_scalar_shape_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            text = (temp / "wiki/overview.md").read_text(encoding="utf-8")
+            text = text.replace("title: \"Overview\"", "title:")
+            text = text.replace("tags: []", "tags: research")
+            text = text.replace("status: seed", "status: maybe")
+            (temp / "wiki/overview.md").write_text(text, encoding="utf-8")
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("frontmatter title must be a non-empty scalar", result.stdout)
+        self.assertIn("frontmatter tags must be a YAML list", result.stdout)
+        self.assertIn("frontmatter status must be one of: active, archived, seed", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

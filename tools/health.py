@@ -61,6 +61,19 @@ SOURCE_PROVENANCE_KEYS = {
     "converter",
     "converter_version",
 }
+REQUIRED_SCALAR_FRONTMATTER = {
+    "canonical_id",
+    "type",
+    "title",
+    "created",
+    "last_updated",
+    "status",
+    "confidence",
+}
+REQUIRED_LIST_FRONTMATTER = {"tags", "aliases", "source_ids", "related_ids", "raw_paths"}
+ALLOWED_TYPES = {"source", "concept", "entity", "synthesis", "overview"}
+ALLOWED_STATUSES = {"seed", "active", "archived"}
+ALLOWED_CONFIDENCES = {"low", "medium", "high"}
 
 
 @dataclass
@@ -100,11 +113,112 @@ def extract_frontmatter(text: str) -> dict[str, str]:
     return result
 
 
+def strip_yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if value in {"null", "~"}:
+        return value
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def frontmatter_body(text: str) -> str | None:
+    match = FRONTMATTER_RE.match(text)
+    if not match:
+        return None
+    return match.group("body")
+
+
+def top_level_frontmatter_lines(body: str) -> dict[str, tuple[int, str]]:
+    lines: dict[str, tuple[int, str]] = {}
+    for line_number, line in enumerate(body.splitlines(), start=1):
+        if not line.strip() or line.startswith(" "):
+            continue
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        lines[key.strip()] = (line_number, value.strip())
+    return lines
+
+
+def has_indented_list_items(body_lines: list[str], start_index: int) -> bool:
+    for line in body_lines[start_index + 1:]:
+        if not line.strip():
+            continue
+        if not line.startswith(" "):
+            return False
+        if re.match(r"^\s+-\s+.+$", line):
+            return True
+    return False
+
+
+def is_yaml_list_field(body: str, key: str, value: str, line_number: int) -> bool:
+    if value == "[]":
+        return True
+    if value:
+        return False
+    return has_indented_list_items(body.splitlines(), line_number - 1)
+
+
+def extract_provenance(text: str) -> dict[str, str]:
+    body = frontmatter_body(text)
+    if body is None:
+        return {}
+    lines = body.splitlines()
+    provenance: dict[str, str] = {}
+    in_provenance = False
+    for line in lines:
+        if line == "provenance:":
+            in_provenance = True
+            continue
+        if in_provenance and line and not line.startswith(" "):
+            break
+        if not in_provenance or not line.startswith("  ") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        provenance[key.strip()] = strip_yaml_scalar(value)
+    return provenance
+
+
 def content_after_frontmatter(text: str) -> str:
     match = FRONTMATTER_RE.match(text)
     if not match:
         return text
     return text[match.end():].strip()
+
+
+def check_frontmatter_shape(rel: str, text: str, issues: list[Issue]) -> None:
+    body = frontmatter_body(text)
+    if body is None:
+        return
+    lines = top_level_frontmatter_lines(body)
+    for key in sorted(REQUIRED_SCALAR_FRONTMATTER):
+        if key not in lines:
+            issues.append(Issue(rel, f"missing {key}"))
+            continue
+        _, value = lines[key]
+        if not value or value == "[]" or value.startswith("[") or value.startswith("{"):
+            issues.append(Issue(rel, f"frontmatter {key} must be a non-empty scalar"))
+    for key in sorted(REQUIRED_LIST_FRONTMATTER):
+        if key not in lines:
+            issues.append(Issue(rel, f"missing {key}"))
+            continue
+        line_number, value = lines[key]
+        if not is_yaml_list_field(body, key, value, line_number):
+            issues.append(Issue(rel, f"frontmatter {key} must be a YAML list"))
+
+    allowed_fields = (
+        ("type", ALLOWED_TYPES),
+        ("status", ALLOWED_STATUSES),
+        ("confidence", ALLOWED_CONFIDENCES),
+    )
+    for key, allowed_values in allowed_fields:
+        if key not in lines:
+            continue
+        value = strip_yaml_scalar(lines[key][1])
+        if value and value not in allowed_values:
+            allowed = ", ".join(sorted(allowed_values))
+            issues.append(Issue(rel, f"frontmatter {key} must be one of: {allowed}"))
 
 
 def load_manifest(root: Path, issues: list[Issue]) -> dict[str, dict[str, object]]:
@@ -157,6 +271,7 @@ def check_wiki_pages(root: Path, issues: list[Issue]) -> set[str]:
         if not frontmatter:
             issues.append(Issue(rel, "missing frontmatter"))
             continue
+        check_frontmatter_shape(rel, text, issues)
         canonical_id = frontmatter.get("canonical_id")
         if not canonical_id:
             issues.append(Issue(rel, "missing canonical_id"))
@@ -198,6 +313,12 @@ def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, ob
             issues.append(Issue(rel, f"missing manifest entry for source_id: {canonical_id}"))
         if canonical_id and canonical_id in manifest_entries:
             entry = manifest_entries[canonical_id]
+            provenance = extract_provenance(text)
+            for key in ("source_id", "raw_path", "content_hash"):
+                provenance_value = provenance.get(key)
+                manifest_value = entry.get(key)
+                if isinstance(manifest_value, str) and provenance_value != manifest_value:
+                    issues.append(Issue(rel, f"provenance {key} does not match manifest"))
             raw_path = entry.get("raw_path")
             if isinstance(raw_path, str) and raw_path and not (root / raw_path).exists():
                 issues.append(Issue(rel, f"manifest raw_path does not exist: {raw_path}"))
@@ -208,7 +329,7 @@ def check_index(root: Path, canonical_ids: set[str], issues: list[Issue]) -> Non
     if not index_path.exists():
         return
     text = read_text(index_path)
-    indexed_ids: set[str] = set()
+    indexed_ids: dict[str, int] = {}
     for line in text.splitlines():
         if not line.startswith("- [["):
             continue
@@ -216,10 +337,16 @@ def check_index(root: Path, canonical_ids: set[str], issues: list[Issue]) -> Non
         if not match:
             issues.append(Issue("wiki/index.md", f"invalid index entry: {line}"))
             continue
-        indexed_ids.add(match.group("id"))
+        indexed_id = match.group("id")
+        indexed_ids[indexed_id] = indexed_ids.get(indexed_id, 0) + 1
+        if indexed_id not in canonical_ids:
+            issues.append(Issue("wiki/index.md", f"index entry for unknown page id: {indexed_id}"))
         listed_path = root / match.group("path")
         if not listed_path.exists():
             issues.append(Issue("wiki/index.md", f"indexed path does not exist: {match.group('path')}"))
+    for indexed_id, count in sorted(indexed_ids.items()):
+        if count > 1:
+            issues.append(Issue("wiki/index.md", f"duplicate index entry for {indexed_id}"))
     for canonical_id in sorted(canonical_ids):
         if canonical_id not in indexed_ids:
             issues.append(Issue("wiki/index.md", f"missing index entry for {canonical_id}"))
