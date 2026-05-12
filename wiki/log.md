@@ -12,3 +12,15 @@
   - none
 - Unresolved issues:
   - none
+
+## [2026-05-12] init | final documentation polish
+
+- Changed pages:
+  - `AGENTS.md`
+  - `wiki/log.md`
+- Raw paths:
+  - none
+- Source IDs:
+  - none
+- Unresolved issues:
+  - none

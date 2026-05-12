@@ -48,6 +48,8 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 - Clearly label anything from model knowledge rather than wiki pages.
 - Ask before expanding to web search or new external sources.
 - If an answer has long-term value, ask whether to save it as a synthesis page.
+- If the user chooses to save a synthesis page, use `templates/synthesis.md`, update `wiki/index.md` and `wiki/log.md`, and make the log entry with `templates/log-entry.md`.
+- Append to `raw/source-manifest.jsonl` only when the saved work also creates a new raw or converted artifact.
 
 ## Health Requirements
 
