@@ -1,1 +1,12 @@
 .worktrees/
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+node_modules/
+graph/graph.json
+graph/graph.html
+graph/graph-report.md
