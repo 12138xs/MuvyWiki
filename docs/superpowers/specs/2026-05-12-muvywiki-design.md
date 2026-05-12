@@ -31,6 +31,11 @@ This keeps the repository useful immediately while avoiding a later structural m
 raw/
   .gitkeep
   README.md
+  source-manifest.jsonl
+  originals/
+    .gitkeep
+  converted/
+    .gitkeep
 
 wiki/
   index.md
@@ -46,6 +51,9 @@ wiki/
     .gitkeep
 
 templates/
+  overview.md
+  index-entry.md
+  log-entry.md
   source.md
   concept.md
   entity.md
@@ -76,15 +84,25 @@ README.md
 
 ### `raw/`
 
-`raw/` contains immutable source material. The agent may add files here when ingesting a URL, pasted text, or converted document, but it must not rewrite the meaning of existing source files. If a source needs cleanup, the original should be preserved or the transformation should be logged.
+`raw/` contains immutable source material. The agent may add files here when ingesting a URL, pasted text, or converted document, but it must not modify an existing raw artifact in place. If a source needs cleanup or conversion, the original stays in `raw/originals/`, the derived Markdown or text artifact goes in `raw/converted/`, and the transformation is recorded in `raw/source-manifest.jsonl` and the corresponding source page.
 
 Recommended first-level folders can emerge naturally, for example `raw/articles/`, `raw/papers/`, `raw/books/`, `raw/projects/`, and `raw/notes/`. The first version does not enforce these folders.
+
+If topical folders are added later, they should sit under `raw/originals/` or `raw/converted/` rather than replacing those provenance boundaries.
+
+`raw/source-manifest.jsonl` is append-only. Each line records one raw or converted artifact:
+
+```json
+{"source_id":"attention-is-all-you-need","raw_path":"raw/originals/attention-is-all-you-need.pdf","content_hash":"sha256:...","source_url":"https://arxiv.org/abs/1706.03762","collected_at":"YYYY-MM-DD","published_at":"YYYY-MM-DD","converted_from":null,"converter":null}
+```
+
+The manifest supports future batch ingest and duplicate detection. A new ingest must compare the candidate artifact hash against the manifest before creating a duplicate source page.
 
 ### `wiki/`
 
 `wiki/` is the compiled knowledge layer owned by the agent. The agent may create and update pages here as part of ingest, query archiving, health checks, and linting.
 
-`wiki/index.md` is the global catalog. It should list every wiki page except `index.md` and `log.md`, grouped by page type.
+`wiki/index.md` is the global catalog. It should list every wiki page except `index.md` and `log.md`, grouped by page type. `overview.md` must be listed explicitly under `Overview`.
 
 `wiki/log.md` is append-only. Entries must use parseable headings:
 
@@ -92,11 +110,22 @@ Recommended first-level folders can emerge naturally, for example `raw/articles/
 ## [YYYY-MM-DD] operation | title
 ```
 
+Allowed operations are `init`, `ingest`, `query`, `health`, `lint`, `graph`, `convert`, and `batch`.
+
+Every log entry body must include:
+
+```markdown
+- Changed pages:
+- Raw paths:
+- Source IDs:
+- Unresolved issues:
+```
+
 `wiki/overview.md` is a living synthesis of what the knowledge base currently contains and where it is developing.
 
 ### `templates/`
 
-`templates/` stores canonical page shapes. The agent should use these templates when creating pages, but may adapt sections when a source demands it.
+`templates/` stores canonical page shapes. The agent should use these templates when creating pages, but may adapt sections when a source demands it. `templates/index-entry.md` and `templates/log-entry.md` define parseable formats for `wiki/index.md` and `wiki/log.md`.
 
 ### `tools/`
 
@@ -114,7 +143,7 @@ Version one creates the directory and documents the contract. Graph output is no
 
 ### `AGENTS.md`
 
-`AGENTS.md` is the schema layer for Codex and other compatible coding agents. It defines page conventions, workflows, naming rules, health checks, lint behavior, and future extension points.
+`AGENTS.md` is the executable schema layer for Codex and other compatible coding agents. It must be derived from this design rather than loosely paraphrased. If this design and `AGENTS.md` diverge, update the design or `AGENTS.md` explicitly before relying on the workflow.
 
 ## Page Frontmatter
 
@@ -122,12 +151,14 @@ All wiki pages use this base frontmatter:
 
 ```yaml
 ---
-title: "Page Title"
+canonical_id: "CanonicalID"
 type: source | concept | entity | synthesis | overview
+title: "Page Title"
 tags: []
 aliases: []
-sources: []
-related: []
+source_ids: []
+related_ids: []
+raw_paths: []
 created: YYYY-MM-DD
 last_updated: YYYY-MM-DD
 status: seed | active | archived
@@ -137,26 +168,95 @@ confidence: low | medium | high
 
 Fields:
 
-- `title`: human-readable page title.
+- `canonical_id`: stable machine-readable page identifier. It must match the file stem.
 - `type`: page category.
+- `title`: human-readable page title.
 - `tags`: broad topical tags.
 - `aliases`: alternate names useful for graph and search.
-- `sources`: source slugs or wiki links that support the page.
-- `related`: explicit related page names for graph tooling.
+- `source_ids`: canonical IDs for source pages that support the page.
+- `related_ids`: canonical IDs for related pages.
+- `raw_paths`: raw artifacts directly attached to this page, usually populated only for source pages.
 - `created`: first creation date.
 - `last_updated`: last knowledge-content update date.
 - `status`: maturity of the page.
 - `confidence`: confidence in the current synthesis.
 
-Use Obsidian-style `[[WikiLinks]]` for internal knowledge links. Use Markdown links for `raw/` files and external URLs.
+Frontmatter is machine-readable only. Body text may use natural language and Obsidian links.
+
+## Canonical IDs and Link Resolution
+
+Filenames define canonical IDs:
+
+- Source and synthesis IDs use kebab-case, for example `attention-is-all-you-need`.
+- Concept and entity IDs use PascalCase or canonical product capitalization, for example `RetrievalAugmentedGeneration`, `OpenAI`, and `GPT5`.
+
+Internal links must target canonical IDs. Use Obsidian display text when the human title differs:
+
+```markdown
+[[RetrievalAugmentedGeneration|Retrieval-Augmented Generation]]
+```
+
+Aliases are secondary lookup keys, not link targets. If two pages define the same alias, health and graph tooling must report the ambiguity. The agent should not create or preserve ambiguous links.
+
+Use Markdown links for `raw/` files and external URLs.
+
+## Index Format
+
+`wiki/index.md` must use one parseable bullet format:
+
+```markdown
+- [[CanonicalID|Human Title]] (`wiki/path/File.md`) - type: concept - updated: YYYY-MM-DD - summary
+```
+
+Rules:
+
+- Each wiki page except `index.md` and `log.md` appears exactly once.
+- `overview.md` appears under the `## Overview` heading.
+- Source, concept, entity, and synthesis entries appear under headings matching their page type.
+- The path in backticks is repository-relative.
+- The summary is one sentence without nested bullets.
 
 ## Page Types
+
+### Overview Page
+
+Location: `wiki/overview.md`
+
+Purpose: maintain a living map of the knowledge base, current emphasis, durable themes, and open research directions.
+
+Required sections:
+
+- `## Current Shape`
+- `## Active Themes`
+- `## Strongest Syntheses`
+- `## Open Questions`
+- `## Maintenance Notes`
 
 ### Source Pages
 
 Location: `wiki/sources/<slug>.md`
 
 Purpose: summarize one source and preserve its key claims, evidence, terminology, and connections.
+
+Every ingested document gets exactly one source page. Papers, tools, datasets, people, companies, and projects get separate entity pages only when they become recurring objects discussed across sources or queries.
+
+Source pages must include this required provenance block in addition to the base frontmatter:
+
+```yaml
+provenance:
+  source_id: "attention-is-all-you-need"
+  raw_path: "raw/originals/attention-is-all-you-need.pdf"
+  content_hash: "sha256:..."
+  source_url: "https://arxiv.org/abs/1706.03762"
+  collected_at: "YYYY-MM-DD"
+  published_at: "YYYY-MM-DD"
+  converted_from: null
+  converted_path: null
+  converter: null
+  converter_version: null
+```
+
+If a converted artifact exists, `converted_from` points to the original raw path and `converted_path` points to the derived artifact.
 
 Required sections:
 
@@ -178,9 +278,12 @@ Purpose: maintain reusable explanations of ideas, methods, theories, and technic
 Required sections:
 
 - `## Definition`
+- `## Claims`
 - `## Why It Matters`
 - `## Mechanism`
 - `## Boundaries and Failure Modes`
+- `## Evidence`
+- `## Contradictions or Tensions`
 - `## Related Concepts`
 - `## Supporting Sources`
 - `## Open Questions`
@@ -195,6 +298,9 @@ Required sections:
 
 - `## Summary`
 - `## Role in the Wiki`
+- `## Claims`
+- `## Evidence`
+- `## Contradictions or Tensions`
 - `## Related Concepts`
 - `## Related Sources`
 - `## Timeline`
@@ -211,6 +317,7 @@ Required sections:
 - `## Question`
 - `## Answer`
 - `## Evidence`
+- `## Contradictions or Tensions`
 - `## Implications`
 - `## Related Pages`
 - `## Follow-up Questions`
@@ -224,19 +331,21 @@ Triggered by requests such as `ingest raw/...`, `ingest this article`, or `ÊëÑÂè
 Steps:
 
 1. Read the source fully.
-2. If the source is not already in `raw/`, save it there without rewriting its meaning.
-3. Read `wiki/index.md` and `wiki/overview.md`.
-4. Create or update one `wiki/sources/<slug>.md` page.
-5. Extract durable concepts and update or create `wiki/concepts/` pages.
-6. Extract durable entities and update or create `wiki/entities/` pages.
-7. Flag contradictions, tensions, and changed claims on affected pages.
-8. Update `wiki/index.md`.
-9. Update `wiki/overview.md` if the source changes the broader picture.
-10. Append an entry to `wiki/log.md`.
-11. Run `python tools/health.py`.
-12. Report changed pages and any unresolved issues.
+2. Compute the candidate artifact hash and check `raw/source-manifest.jsonl` for duplicates.
+3. If the source is not already in `raw/`, save it as a new artifact under `raw/originals/` without modifying existing artifacts.
+4. Read `wiki/index.md` and `wiki/overview.md`.
+5. Create or update one `wiki/sources/<slug>.md` page.
+6. Extract durable concepts and update or create `wiki/concepts/` pages.
+7. Extract durable entities and update or create `wiki/entities/` pages.
+8. Flag contradictions, tensions, and changed claims on affected pages.
+9. Update `wiki/index.md`.
+10. Update `wiki/overview.md` if the source changes the broader picture.
+11. Append an entry to `wiki/log.md`.
+12. Update `raw/source-manifest.jsonl` with the source identity and content hash.
+13. Run `python tools/health.py`.
+14. Report changed pages and any unresolved issues.
 
-Version one prefers one source per ingest. Batch ingest is reserved for future tooling.
+Version one prefers one source per ingest. Batch ingest is reserved for future tooling and must use `raw/source-manifest.jsonl` content hashes for idempotency.
 
 ### Query
 
@@ -248,7 +357,9 @@ Steps:
 2. Read the relevant wiki pages.
 3. Answer from wiki content first.
 4. Cite internal pages with `[[WikiLinks]]`.
-5. If the answer has long-term value, ask whether to save it as a synthesis page.
+5. Clearly label any answer material that comes from model knowledge rather than wiki pages.
+6. Ask before expanding to web search or new external sources.
+7. If the answer has long-term value, ask whether to save it as a synthesis page.
 
 Plain queries do not modify files unless the user asks to save or archive the answer.
 
@@ -261,11 +372,29 @@ Version one implements deterministic checks:
 - Required directories exist.
 - Required root files exist.
 - Wiki pages are non-empty beyond frontmatter.
-- Pages in `wiki/sources`, `wiki/concepts`, `wiki/entities`, and `wiki/syntheses` are listed in `wiki/index.md`.
-- `[[WikiLinks]]` have plausible targets.
+- Pages in `wiki/sources`, `wiki/concepts`, `wiki/entities`, `wiki/syntheses`, and `wiki/overview.md` are listed in `wiki/index.md`.
+- `wiki/index.md` entries match the parseable index format.
+- Frontmatter fields use the expected machine-readable types.
+- Source pages include required provenance fields and matching manifest entries.
+- `[[WikiLinks]]` target canonical IDs and have plausible targets.
+- Alias collisions are reported.
 - `wiki/log.md` uses parseable headings.
 
 The script should print a concise report and exit non-zero when structural issues are found.
+
+Minimum CLI contract:
+
+```bash
+python tools/health.py [--json]
+```
+
+Exit codes:
+
+- `0`: no structural issues.
+- `1`: structural issues found.
+- `2`: invalid command usage.
+
+With `--json`, output must include `status`, `issues`, and `checked_at`.
 
 ### Lint
 
@@ -283,6 +412,14 @@ Version one reserves the command interface and documents expected report shape. 
 
 Semantic linting should run after health passes.
 
+Minimum CLI contract:
+
+```bash
+python tools/lint.py [--report graph/graph-report.md]
+```
+
+Version one may return a deterministic not-implemented result, but it must use exit code `3` and a clear message. Future implementations should exit `0` for no semantic issues, `1` for semantic issues, and `2` for invalid command usage.
+
 ### Graph
 
 Triggered by `build graph`.
@@ -296,6 +433,42 @@ Version one reserves the interface. Future versions will:
 
 Page frontmatter and link conventions in version one are designed to support this later without migration.
 
+Minimum CLI contract:
+
+```bash
+python tools/build_graph.py [--json graph/graph.json] [--html graph/graph.html] [--report graph/graph-report.md]
+```
+
+Version one may return a deterministic not-implemented result with exit code `3`.
+
+`graph/graph.json` must use this schema shape:
+
+```json
+{
+  "generated_at": "YYYY-MM-DDTHH:MM:SSZ",
+  "nodes": [
+    {
+      "id": "RetrievalAugmentedGeneration",
+      "path": "wiki/concepts/RetrievalAugmentedGeneration.md",
+      "title": "Retrieval-Augmented Generation",
+      "type": "concept",
+      "aliases": [],
+      "source_ids": [],
+      "confidence": "medium"
+    }
+  ],
+  "edges": [
+    {
+      "source": "RetrievalAugmentedGeneration",
+      "target": "VectorDatabase",
+      "kind": "wikilink | related | source_support | contradiction",
+      "evidence": "wiki/concepts/RetrievalAugmentedGeneration.md",
+      "confidence": "medium"
+    }
+  ]
+}
+```
+
 ### Conversion
 
 Triggered implicitly during ingest when source material is not Markdown.
@@ -304,13 +477,21 @@ Version one reserves `tools/convert.py`. Future versions may integrate `markitdo
 
 If conversion is unavailable, the agent should ask the user for Markdown or pasted text rather than silently skipping content.
 
+Minimum CLI contract:
+
+```bash
+python tools/convert.py <input_path_or_url> --out raw/converted/<slug>.md
+```
+
+Version one may return a deterministic not-implemented result with exit code `3`. Future implementations should write converted artifacts only under `raw/converted/` and must not overwrite originals.
+
 ## Naming Conventions
 
 - Source slugs use kebab-case: `attention-is-all-you-need`.
 - Concept pages use PascalCase: `RetrievalAugmentedGeneration.md`.
 - Entity pages use PascalCase or canonical capitalization: `OpenAI.md`, `AndrejKarpathy.md`, `GPT5.md`.
 - Synthesis pages use kebab-case.
-- Internal links use page titles or canonical aliases.
+- Internal links target canonical IDs. Display text may use `[[CanonicalID|Human Title]]`.
 - File names should be stable; rename only when the current name is actively misleading.
 
 ## Error Handling
@@ -319,6 +500,7 @@ If conversion is unavailable, the agent should ask the user for Markdown or past
 - If a source contradicts existing pages, record the contradiction rather than choosing a winner silently.
 - If a page link is ambiguous, report it instead of guessing.
 - If a future tool is not implemented yet, explain the missing capability and fall back to the documented manual workflow.
+- If a source hash already exists in `raw/source-manifest.jsonl`, treat the ingest as a duplicate unless the user explicitly wants a new source page.
 - If health checks fail after ingest, report the issue and the files involved.
 
 ## Testing and Verification
@@ -326,10 +508,12 @@ If conversion is unavailable, the agent should ask the user for Markdown or past
 Initial verification should include:
 
 - Running `python tools/health.py`.
+- Running `python tools/health.py --json`.
 - Confirming required directories and files exist.
 - Confirming `wiki/index.md` references all initial wiki pages.
 - Confirming `wiki/log.md` contains an initialization entry.
-- Confirming reserved tools produce clear stub output or documented errors.
+- Confirming source pages and `raw/source-manifest.jsonl` agree on source IDs, raw paths, and hashes.
+- Confirming reserved tools produce clear stub output or documented errors with the specified exit codes.
 
 Future verification should add:
 
