@@ -122,6 +122,15 @@ def strip_yaml_scalar(value: str) -> str:
     return value
 
 
+def parse_yaml_scalar(value: str) -> object:
+    value = value.strip()
+    if value in {"null", "~"}:
+        return None
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
 def frontmatter_body(text: str) -> str | None:
     match = FRONTMATTER_RE.match(text)
     if not match:
@@ -160,12 +169,12 @@ def is_yaml_list_field(body: str, key: str, value: str, line_number: int) -> boo
     return has_indented_list_items(body.splitlines(), line_number - 1)
 
 
-def extract_provenance(text: str) -> dict[str, str]:
+def extract_provenance(text: str) -> dict[str, object]:
     body = frontmatter_body(text)
     if body is None:
         return {}
     lines = body.splitlines()
-    provenance: dict[str, str] = {}
+    provenance: dict[str, object] = {}
     in_provenance = False
     for line in lines:
         if line == "provenance:":
@@ -176,7 +185,7 @@ def extract_provenance(text: str) -> dict[str, str]:
         if not in_provenance or not line.startswith("  ") or ":" not in line:
             continue
         key, value = line.split(":", 1)
-        provenance[key.strip()] = strip_yaml_scalar(value)
+        provenance[key.strip()] = parse_yaml_scalar(value)
     return provenance
 
 
@@ -314,10 +323,10 @@ def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, ob
         if canonical_id and canonical_id in manifest_entries:
             entry = manifest_entries[canonical_id]
             provenance = extract_provenance(text)
-            for key in ("source_id", "raw_path", "content_hash"):
+            for key in sorted(SOURCE_PROVENANCE_KEYS):
                 provenance_value = provenance.get(key)
                 manifest_value = entry.get(key)
-                if isinstance(manifest_value, str) and provenance_value != manifest_value:
+                if provenance_value != manifest_value:
                     issues.append(Issue(rel, f"provenance {key} does not match manifest"))
             raw_path = entry.get("raw_path")
             if isinstance(raw_path, str) and raw_path and not (root / raw_path).exists():

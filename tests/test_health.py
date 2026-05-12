@@ -190,6 +190,35 @@ provenance:
         self.assertEqual(result.returncode, 1)
         self.assertIn("provenance content_hash does not match manifest", result.stdout)
 
+    def test_source_provenance_non_core_field_mismatch_with_manifest_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            text = (temp / "wiki/sources/source-one.md").read_text(encoding="utf-8")
+            (temp / "wiki/sources/source-one.md").write_text(
+                text.replace("source_url: null", 'source_url: "https://example.com/source"'),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("provenance source_url does not match manifest", result.stdout)
+
+    def test_source_provenance_quoted_string_matches_manifest_string(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            manifest_path = temp / "raw/source-manifest.jsonl"
+            entry = json.loads(manifest_path.read_text(encoding="utf-8"))
+            entry["converter_version"] = "1.2.3"
+            manifest_path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+            text = (temp / "wiki/sources/source-one.md").read_text(encoding="utf-8")
+            (temp / "wiki/sources/source-one.md").write_text(
+                text.replace("converter_version: null", 'converter_version: "1.2.3"'),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_invalid_frontmatter_list_and_scalar_shape_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp = Path(temp_dir)
