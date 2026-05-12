@@ -2,6 +2,8 @@
 
 MuvyWiki is a personal LLM-maintained knowledge base inspired by Andrej Karpathy's LLM Wiki pattern.
 
+中文使用手册见 [USER_GUIDE.md](USER_GUIDE.md)。
+
 The repository has three layers:
 
 - `raw/` stores original and converted source artifacts.
