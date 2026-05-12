@@ -35,8 +35,8 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 5. Create or update one source page.
 6. Update relevant concept and entity pages.
 7. Record contradictions or tensions instead of silently choosing a winner.
-8. Update `wiki/index.md`, `wiki/overview.md`, and `wiki/log.md`.
-9. Update `raw/source-manifest.jsonl`.
+8. Update `wiki/index.md`, `wiki/overview.md`, and `wiki/log.md`; log entries must use `templates/log-entry.md`.
+9. Append to `raw/source-manifest.jsonl`.
 10. Run `python tools/health.py`.
 11. Report changed pages and unresolved issues.
 
@@ -47,7 +47,7 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 - Answer from wiki content first and cite pages with `[[WikiLinks]]`.
 - Clearly label anything from model knowledge rather than wiki pages.
 - Ask before expanding to web search or new external sources.
-- Save durable answers as synthesis pages only when the user asks.
+- If an answer has long-term value, ask whether to save it as a synthesis page.
 
 ## Health Requirements
 
