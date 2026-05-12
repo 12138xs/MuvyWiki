@@ -74,6 +74,19 @@ REQUIRED_LIST_FRONTMATTER = {"tags", "aliases", "source_ids", "related_ids", "ra
 ALLOWED_TYPES = {"source", "concept", "entity", "synthesis", "overview"}
 ALLOWED_STATUSES = {"seed", "active", "archived"}
 ALLOWED_CONFIDENCES = {"low", "medium", "high"}
+INDEX_SECTIONS_BY_TYPE = {
+    "overview": "Overview",
+    "source": "Sources",
+    "concept": "Concepts",
+    "entity": "Entities",
+    "synthesis": "Syntheses",
+}
+REQUIRED_LOG_FIELDS = (
+    "- Changed pages:",
+    "- Raw paths:",
+    "- Source IDs:",
+    "- Unresolved issues:",
+)
 
 
 @dataclass
@@ -164,9 +177,29 @@ def has_indented_list_items(body_lines: list[str], start_index: int) -> bool:
 def is_yaml_list_field(body: str, key: str, value: str, line_number: int) -> bool:
     if value == "[]":
         return True
+    if is_inline_yaml_list(value):
+        return True
     if value:
         return False
     return has_indented_list_items(body.splitlines(), line_number - 1)
+
+
+def is_inline_yaml_list(value: str) -> bool:
+    if not value.startswith("[") or not value.endswith("]"):
+        return False
+    inner = value[1:-1].strip()
+    if not inner:
+        return True
+    items = [item.strip() for item in inner.split(",")]
+    return all(is_simple_yaml_list_item(item) for item in items)
+
+
+def is_simple_yaml_list_item(item: str) -> bool:
+    if not item:
+        return False
+    if len(item) >= 2 and item[0] == item[-1] and item[0] in {"'", '"'}:
+        item = item[1:-1]
+    return bool(item) and not any(char in item for char in "[]{}")
 
 
 def extract_provenance(text: str) -> dict[str, object]:
@@ -270,9 +303,9 @@ def check_required_paths(root: Path, issues: list[Issue]) -> None:
             issues.append(Issue(rel, "missing required path"))
 
 
-def check_wiki_pages(root: Path, issues: list[Issue]) -> dict[str, str]:
+def check_wiki_pages(root: Path, issues: list[Issue]) -> dict[str, dict[str, str]]:
     seen_canonical_ids: set[str] = set()
-    canonical_paths: dict[str, str] = {}
+    canonical_pages: dict[str, dict[str, str]] = {}
     aliases: dict[str, str] = {}
     for path in collect_wiki_pages(root):
         rel = path.relative_to(root).as_posix()
@@ -292,9 +325,12 @@ def check_wiki_pages(root: Path, issues: list[Issue]) -> dict[str, str]:
             if canonical_id != path.stem:
                 issues.append(Issue(rel, "canonical_id must match file stem"))
             else:
-                canonical_paths.setdefault(canonical_id, rel)
-        if not frontmatter.get("type"):
+                canonical_pages.setdefault(canonical_id, {"path": rel, "type": frontmatter.get("type", "")})
+        page_type = frontmatter.get("type")
+        if not page_type:
             issues.append(Issue(rel, "missing type"))
+        elif canonical_id in canonical_pages and canonical_pages[canonical_id]["path"] == rel:
+            canonical_pages[canonical_id]["type"] = page_type
         if not content_after_frontmatter(text):
             issues.append(Issue(rel, "page appears empty beyond frontmatter"))
         alias_match = re.search(r"aliases:\n((?:  - .+\n)+)", text)
@@ -304,7 +340,7 @@ def check_wiki_pages(root: Path, issues: list[Issue]) -> dict[str, str]:
                 owner = aliases.setdefault(alias, canonical_id)
                 if owner != canonical_id:
                     issues.append(Issue(rel, f"alias collision: {alias}"))
-    return canonical_paths
+    return canonical_pages
 
 
 def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, object]], issues: list[Issue]) -> None:
@@ -336,15 +372,34 @@ def check_source_provenance(root: Path, manifest_entries: dict[str, dict[str, ob
             raw_path = entry.get("raw_path")
             if isinstance(raw_path, str) and raw_path and not (root / raw_path).exists():
                 issues.append(Issue(rel, f"manifest raw_path does not exist: {raw_path}"))
+            manifest_converted_path = entry.get("converted_path")
+            if (
+                isinstance(manifest_converted_path, str)
+                and manifest_converted_path
+                and not (root / manifest_converted_path).exists()
+            ):
+                issues.append(Issue(rel, f"manifest converted_path does not exist: {manifest_converted_path}"))
+            provenance_converted_path = provenance.get("converted_path")
+            if (
+                isinstance(provenance_converted_path, str)
+                and provenance_converted_path
+                and provenance_converted_path != manifest_converted_path
+                and not (root / provenance_converted_path).exists()
+            ):
+                issues.append(Issue(rel, f"provenance converted_path does not exist: {provenance_converted_path}"))
 
 
-def check_index(root: Path, canonical_paths: dict[str, str], issues: list[Issue]) -> None:
+def check_index(root: Path, canonical_pages: dict[str, dict[str, str]], issues: list[Issue]) -> None:
     index_path = root / "wiki" / "index.md"
     if not index_path.exists():
         return
     text = read_text(index_path)
     indexed_ids: dict[str, int] = {}
+    current_section: str | None = None
     for line in text.splitlines():
+        if line.startswith("## "):
+            current_section = line.removeprefix("## ").strip()
+            continue
         if not line.startswith("- [["):
             continue
         match = INDEX_ENTRY_RE.match(line)
@@ -353,9 +408,20 @@ def check_index(root: Path, canonical_paths: dict[str, str], issues: list[Issue]
             continue
         indexed_id = match.group("id")
         indexed_ids[indexed_id] = indexed_ids.get(indexed_id, 0) + 1
-        expected_path = canonical_paths.get(indexed_id)
-        if expected_path is None:
+        expected_page = canonical_pages.get(indexed_id)
+        if expected_page is None:
             issues.append(Issue("wiki/index.md", f"index entry for unknown page id: {indexed_id}"))
+            expected_path = None
+            expected_type = None
+        else:
+            expected_path = expected_page["path"]
+            expected_type = expected_page["type"]
+            expected_section = INDEX_SECTIONS_BY_TYPE.get(expected_type)
+            if expected_section and current_section != expected_section:
+                issues.append(Issue("wiki/index.md", f"index entry for {indexed_id} must be under ## {expected_section}"))
+            indexed_type = match.group("type")
+            if expected_type and indexed_type != expected_type:
+                issues.append(Issue("wiki/index.md", f"index entry for {indexed_id} has type {indexed_type}, expected {expected_type}"))
         listed_path = root / match.group("path")
         if not listed_path.exists():
             issues.append(Issue("wiki/index.md", f"indexed path does not exist: {match.group('path')}"))
@@ -369,7 +435,7 @@ def check_index(root: Path, canonical_paths: dict[str, str], issues: list[Issue]
     for indexed_id, count in sorted(indexed_ids.items()):
         if count > 1:
             issues.append(Issue("wiki/index.md", f"duplicate index entry for {indexed_id}"))
-    for canonical_id in sorted(canonical_paths):
+    for canonical_id in sorted(canonical_pages):
         if canonical_id not in indexed_ids:
             issues.append(Issue("wiki/index.md", f"missing index entry for {canonical_id}"))
 
@@ -384,6 +450,26 @@ def check_log(root: Path, issues: list[Issue]) -> None:
     for heading in headings:
         if not LOG_HEADING_RE.match(heading):
             issues.append(Issue("wiki/log.md", f"invalid log heading: {heading}"))
+    for body in log_entry_bodies(read_text(log_path)):
+        for required_field in REQUIRED_LOG_FIELDS:
+            if not any(line.startswith(required_field) for line in body):
+                issues.append(Issue("wiki/log.md", f"log entry missing required field: {required_field}"))
+
+
+def log_entry_bodies(text: str) -> list[list[str]]:
+    bodies: list[list[str]] = []
+    current_body: list[str] | None = None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if current_body is not None:
+                bodies.append(current_body)
+            current_body = []
+            continue
+        if current_body is not None:
+            current_body.append(line)
+    if current_body is not None:
+        bodies.append(current_body)
+    return bodies
 
 
 def check_wikilinks(root: Path, canonical_ids: set[str], issues: list[Issue]) -> None:
@@ -398,10 +484,10 @@ def run(root: Path) -> list[Issue]:
     issues: list[Issue] = []
     check_required_paths(root, issues)
     manifest_entries = load_manifest(root, issues)
-    canonical_paths = check_wiki_pages(root, issues)
-    canonical_ids = set(canonical_paths)
+    canonical_pages = check_wiki_pages(root, issues)
+    canonical_ids = set(canonical_pages)
     check_source_provenance(root, manifest_entries, issues)
-    check_index(root, canonical_paths, issues)
+    check_index(root, canonical_pages, issues)
     check_log(root, issues)
     check_wikilinks(root, canonical_ids, issues)
     return issues

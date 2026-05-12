@@ -161,9 +161,32 @@ provenance:
             """# MuvyWiki Log
 
 ## [2026-05-12] init | fixture
+
+- Changed pages: [[overview]], [[source-one]]
+- Raw paths: raw/originals/source-one.txt
+- Source IDs: source-one
+- Unresolved issues: none
 """,
             encoding="utf-8",
         )
+
+    def test_heading_only_log_entry_fails(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            (temp / "wiki/log.md").write_text(
+                """# MuvyWiki Log
+
+## [2026-05-12] init | fixture
+""",
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("log entry missing required field: - Changed pages:", result.stdout)
+        self.assertIn("log entry missing required field: - Raw paths:", result.stdout)
+        self.assertIn("log entry missing required field: - Source IDs:", result.stdout)
+        self.assertIn("log entry missing required field: - Unresolved issues:", result.stdout)
 
     def test_duplicate_index_entry_fails(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -195,6 +218,54 @@ provenance:
             "index entry for source-one points to wiki/overview.md, expected wiki/sources/source-one.md",
             result.stdout,
         )
+
+    def test_index_entry_must_be_under_matching_section(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            index_path = temp / "wiki/index.md"
+            index_path.write_text(
+                index_path.read_text(encoding="utf-8").replace(
+                    "## Sources\n\n- [[source-one|Source One]]",
+                    "## Concepts\n\n- [[source-one|Source One]]",
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("index entry for source-one must be under ## Sources", result.stdout)
+
+    def test_overview_index_entry_must_be_under_overview_section(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            index_path = temp / "wiki/index.md"
+            index_path.write_text(
+                index_path.read_text(encoding="utf-8").replace(
+                    "## Overview\n\n- [[overview|Overview]]",
+                    "## Sources\n\n- [[overview|Overview]]",
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("index entry for overview must be under ## Overview", result.stdout)
+
+    def test_index_entry_type_must_match_page_frontmatter_type(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            index_path = temp / "wiki/index.md"
+            index_path.write_text(
+                index_path.read_text(encoding="utf-8").replace(
+                    "- [[source-one|Source One]] (`wiki/sources/source-one.md`) - type: source - updated: 2026-05-12 - Test source.",
+                    "- [[source-one|Source One]] (`wiki/sources/source-one.md`) - type: concept - updated: 2026-05-12 - Test source.",
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("index entry for source-one has type concept, expected source", result.stdout)
 
     def test_duplicate_canonical_ids_across_wiki_pages_fail(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -261,6 +332,35 @@ confidence: medium
             text = (temp / "wiki/sources/source-one.md").read_text(encoding="utf-8")
             (temp / "wiki/sources/source-one.md").write_text(
                 text.replace("converter_version: null", 'converter_version: "1.2.3"'),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_source_converted_path_must_exist_when_present(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            manifest_path = temp / "raw/source-manifest.jsonl"
+            entry = json.loads(manifest_path.read_text(encoding="utf-8"))
+            entry["converted_path"] = "raw/converted/source-one.md"
+            manifest_path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+            text = (temp / "wiki/sources/source-one.md").read_text(encoding="utf-8")
+            (temp / "wiki/sources/source-one.md").write_text(
+                text.replace("converted_path: null", 'converted_path: "raw/converted/source-one.md"'),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("manifest converted_path does not exist: raw/converted/source-one.md", result.stdout)
+
+    def test_inline_yaml_list_frontmatter_is_valid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            text = (temp / "wiki/overview.md").read_text(encoding="utf-8")
+            (temp / "wiki/overview.md").write_text(
+                text.replace("tags: []", "tags: [knowledge-base]"),
                 encoding="utf-8",
             )
             result = self.run_health(cwd=temp)
