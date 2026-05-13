@@ -56,11 +56,45 @@ graph/              # 未来图谱输出目录
 
 ## 如何添加一份新资料
 
+### Ingest v2 支持的输入
+
+当前 agent-first ingest 支持：
+
+- Markdown 文件。
+- 纯文本文件。
+- 直接粘贴到对话里的文本。
+- 已经放在 `raw/converted/` 的 Markdown。
+
+暂不直接支持：
+
+- PDF。
+- DOCX/PPTX/XLSX。
+- 需要联网抓取或渲染的 HTML。
+- 二进制文件。
+
+这些格式会在 Convert v2 里处理。现在遇到这类资料时，请先提供可读文本或转换后的 Markdown。
+
+### Ingest 请求示例
+
+```text
+请摄取 raw/originals/tiny-rag-note.md，类型是 technical article，更新 MuvyWiki，并运行 health。
+```
+
+```text
+请把下面这段研究笔记整理进 MuvyWiki；如果值得长期保存，请创建 source 页面和必要的 concept/entity 页面。
+```
+
+```text
+请检查这份资料是否已经在 raw/source-manifest.jsonl 里存在；如果不是重复来源，再 ingest。
+```
+
 推荐对 Codex 这样说：
 
 ```text
-请 ingest 这篇文章：<链接或文件路径>
+请 ingest 这份本地 Markdown/text 文件：<文件路径>
 ```
+
+如果你手上只有网页链接，请先粘贴正文，或先提供转换后的本地 Markdown 文件。
 
 或者：
 

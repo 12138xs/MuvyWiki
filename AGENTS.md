@@ -26,19 +26,96 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 - Use display text when needed: `[[CanonicalID|Human Title]]`.
 - Aliases are lookup helpers, not link targets.
 
+## Ingest Triggers
+
+Treat these requests as ingest requests:
+
+- `ingest <path-or-url>`
+- `摄取 <path-or-url>`
+- `请把 <path-or-url> 加入 MuvyWiki`
+- `请把这段内容整理进 MuvyWiki`
+- `把 raw/originals/<file> 摄取进知识库`
+
+Remote URLs are recognized as ingest intent only. Ingest v2 does not fetch, crawl, or render remote URLs directly; stop and ask the user for pasted text, a local Markdown/text file, or a converted Markdown artifact. Do not pretend remote content was ingested.
+
 ## Ingest Workflow
 
-1. Read the source fully.
-2. Compute the artifact hash and check `raw/source-manifest.jsonl`.
-3. Save new artifacts under `raw/originals/`.
-4. Read `wiki/index.md` and `wiki/overview.md`.
-5. Create or update one source page.
-6. Update relevant concept and entity pages.
-7. Record contradictions or tensions instead of silently choosing a winner.
-8. Update `wiki/index.md`, `wiki/overview.md`, and `wiki/log.md`; log entries must use `templates/log-entry.md`.
-9. Append to `raw/source-manifest.jsonl`.
-10. Run `python tools/health.py`.
-11. Report changed pages and unresolved issues.
+### Preflight
+
+1. Identify whether the input is Markdown, plain text, pasted text, already converted Markdown, remote URL, or unsupported.
+2. If the input is a remote URL, stop and ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
+3. Choose a source template:
+   - technical paper: `templates/sources/technical-paper.md`
+   - technical article: `templates/sources/technical-article.md`
+   - project README: `templates/sources/project-readme.md`
+   - meeting notes: `templates/sources/meeting-notes.md`
+   - journal entry: `templates/sources/journal-entry.md`
+   - fallback: `templates/source.md`
+4. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
+5. Choose a canonical source ID in kebab-case.
+6. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction.
+7. Check whether the raw artifact already exists.
+8. Compute the artifact hash from the local raw artifact.
+9. Check `raw/source-manifest.jsonl` for duplicate `content_hash` or `source_id`.
+10. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
+
+### Page Updates
+
+1. Create or update exactly one source page at `wiki/sources/<source-id>.md`.
+2. Use the selected source template and preserve the full provenance block.
+3. Extract key claims as source-backed bullets.
+4. Link concepts and entities with canonical IDs.
+5. Create concept pages only for reusable concepts likely to recur.
+6. Create entity pages only for recurring people, organizations, projects, papers, datasets, benchmarks, or tools.
+7. Keep private or incidental names inside the source page unless the user asks to track them.
+8. Record contradictions or tensions instead of silently replacing older claims.
+
+### Required Metadata Updates
+
+Every successful ingest updates:
+
+- `raw/source-manifest.jsonl`
+- `wiki/index.md`
+- `wiki/log.md`
+
+Update `wiki/overview.md` only when the source changes the broader knowledge map.
+
+### Post-Ingest Validation
+
+Run `python tools/health.py` after edits. If health fails, fix structural issues before reporting completion.
+
+### Completion Report
+
+End every successful ingest with:
+
+```text
+Ingest complete.
+
+Source ID: <source-id>
+Raw path: <raw-path>
+Source page: <wiki/sources/source-id.md>
+Created pages:
+- ...
+Updated pages:
+- ...
+Concepts touched:
+- ...
+Entities touched:
+- ...
+Unresolved issues:
+- none | ...
+Verification:
+- python tools/health.py: ok
+```
+
+If ingest cannot complete, report:
+
+```text
+Ingest blocked.
+
+Reason: <unsupported input | duplicate source | missing raw file | ambiguous source ID | health failure>
+Next step: <specific user action or agent action>
+```
 
 ## Query Workflow
 

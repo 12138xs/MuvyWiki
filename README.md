@@ -20,4 +20,6 @@ python tools/build_graph.py
 python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
 ```
 
+For agent-first ingest workflow details, see `USER_GUIDE.md` and `AGENTS.md`. Domain-specific source templates live in `templates/sources/`.
+
 Reserved tools may return exit code `3` until their full implementation is added.
