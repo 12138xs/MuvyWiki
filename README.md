@@ -43,5 +43,7 @@ Documentation map:
 - `raw/README.md` - source artifact and manifest rules.
 - `graph/README.md` - graph output contract.
 - `examples/ingest/README.md` - runnable example of a successful ingest.
+- `docs/superpowers/specs/` - design specs that current agent docs reference.
+- `docs/superpowers/plans/` - historical implementation plans.
 
 `convert.py` supports local Markdown/text inputs only. PDF, Office documents, remote URLs, HTML rendering, embeddings, and LLM-based extraction remain future work.

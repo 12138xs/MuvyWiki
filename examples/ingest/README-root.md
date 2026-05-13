@@ -16,6 +16,7 @@ Common commands:
 python tools/health.py
 python tools/health.py --json
 python tools/lint.py
+python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
 python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```

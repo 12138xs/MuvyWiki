@@ -125,6 +125,7 @@ Next step: <specific user action or agent action>
 ## Health Requirements
 
 Run `python tools/health.py` after structural edits and after ingest. Use `python tools/health.py --json` when machine-readable evidence is useful.
+Run `python tools/lint.py` after documentation or wiki content changes that may leave empty sections, stale index text, or orphan pages.
 
 ## Local Interfaces
 

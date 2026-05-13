@@ -33,8 +33,13 @@ The fixture also supports:
 
 ```bash
 python tools/lint.py
+python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
+python tools/convert.py raw/originals/tiny-rag-note.md --out raw/converted/tiny-rag-note-smoke.md
+rm raw/converted/tiny-rag-note-smoke.md
 ```
+
+Conversion only writes a converted artifact. It does not update the manifest or wiki pages by itself.
 
 From the repository root, the test suite also validates this fixture:
 

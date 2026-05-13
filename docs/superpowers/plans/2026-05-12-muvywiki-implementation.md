@@ -1,5 +1,7 @@
 # MuvyWiki Implementation Plan
 
+> **Status:** Historical plan. This records the original repository skeleton work; current tool behavior is documented in `README.md`, `AGENTS.md`, and `docs/superpowers/specs/2026-05-13-interface-v1-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the first usable MuvyWiki repository skeleton with strict Markdown conventions, append-only source provenance, deterministic health checks, and reserved interfaces for future graph, lint, conversion, and batch ingest.

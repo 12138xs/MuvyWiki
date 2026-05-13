@@ -160,11 +160,18 @@ When functionality, interface capabilities, or workflow rules change, keep these
 - `USER_GUIDE.md` for user-facing workflows and current capabilities.
 - `AGENTS.md` for agent-facing rules and interface boundaries.
 - Directory READMEs such as `raw/README.md`, `graph/README.md`, and `examples/ingest/README.md` when their contracts change.
+- `docs/superpowers/specs/` when implemented behavior changes a design assumption.
+- Historical implementation plans only need a status note when old instructions could be mistaken for current protocol.
 
 For docs-only maintenance, run:
 
 ```bash
+python -m unittest tests/test_docs_interfaces.py
 python -m unittest discover -s tests
+python tools/lint.py
 python tools/health.py
+python tools/build_graph.py
+cd examples/ingest && python tools/lint.py
 cd examples/ingest && python tools/health.py
+cd examples/ingest && python tools/build_graph.py
 ```

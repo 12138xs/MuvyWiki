@@ -20,7 +20,7 @@ PDF, Office documents, remote webpages, HTML rendering, and binary files are not
 Each manifest line is JSON:
 
 ```json
-{"source_id":"example-source","raw_path":"raw/originals/example.pdf","content_hash":"sha256:...","source_url":null,"collected_at":"YYYY-MM-DD","published_at":null,"converted_from":null,"converted_path":null,"converter":null,"converter_version":null}
+{"source_id":"example-source","raw_path":"raw/originals/example.md","content_hash":"sha256:...","source_url":null,"collected_at":"YYYY-MM-DD","published_at":null,"converted_from":null,"converted_path":null,"converter":null,"converter_version":null}
 ```
 
 Fields:
@@ -32,8 +32,8 @@ Fields:
 - `collected_at`: date the artifact was added to MuvyWiki.
 - `published_at`: source publication date when known; otherwise `null`.
 - `converted_from`: source path used to create a converted artifact; otherwise `null`.
-- `converted_path`: converted Markdown/text path under `raw/converted/`; otherwise `null`.
-- `converter`: converter name when conversion is implemented; otherwise `null`.
-- `converter_version`: converter version when conversion is implemented; otherwise `null`.
+- `converted_path`: converted Markdown/text path under `raw/converted/` after ingest records it; otherwise `null`.
+- `converter`: converter name used for conversion; otherwise `null`.
+- `converter_version`: converter or interface version used for conversion; otherwise `null`.
 
 For successful source ingests, the source page provenance block must match the corresponding manifest entry.

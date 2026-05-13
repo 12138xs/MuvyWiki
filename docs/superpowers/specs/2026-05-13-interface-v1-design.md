@@ -2,13 +2,13 @@
 
 ## Summary
 
-Interface v1 turns the currently reserved `lint.py`, `build_graph.py`, and `convert.py` entrypoints into small, useful, standard-library-only tools while preserving MuvyWiki's agent-first philosophy.
+Interface v1 turns the originally reserved `lint.py`, `build_graph.py`, and `convert.py` entrypoints into small, useful, standard-library-only tools while preserving MuvyWiki's agent-first philosophy.
 
 The goal is not to build a full ingestion platform yet. The goal is to make every public command honest, deterministic, documented, test-covered, and consistent with the existing wiki structure.
 
 ## Goals
 
-- Implement a practical first version of every reserved tool interface.
+- Implement a practical first version of every public tool interface.
 - Keep the implementation lightweight and dependency-free.
 - Preserve future hooks for richer conversion, semantic linting, and graph visualization.
 - Keep `tools/health.py` as the structural quality gate.
@@ -125,7 +125,7 @@ python tools/build_graph.py \
   --report graph/graph-report.md
 ```
 
-Options preserve the existing reserved interface:
+Options preserve command compatibility with the original interface:
 
 - `--json`: graph JSON output path.
 - `--html`: HTML graph viewer output path.
@@ -293,7 +293,7 @@ Add or update tests for:
 - `convert.py` successful `.md` and `.txt` conversion.
 - `convert.py --json` shape.
 - `convert.py` rejection of remote URLs, absolute outputs, traversal outputs, and unsupported binary-like extensions.
-- Documentation consistency for implemented/reserved status.
+- Documentation consistency for implemented status and remaining future boundaries.
 
 Existing tests should continue to pass. `health.py` behavior should not regress.
 

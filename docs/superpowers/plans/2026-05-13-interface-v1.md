@@ -1,5 +1,7 @@
 # Interface v1 Implementation Plan
 
+> **Status:** Historical plan. Interface v1 has been implemented; the final lint report default is `graph/lint-report.md`, while graph reports use `graph/graph-report.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement the reserved `lint.py`, `build_graph.py`, and `convert.py` interfaces as lightweight, deterministic, documented tools.

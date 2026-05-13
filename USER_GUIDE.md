@@ -325,13 +325,13 @@ PDF、Office、远程网页、HTML 渲染和二进制文件仍不支持。需要
 ### 同步文档
 
 ```text
-请检查当前功能和接口，更新 README、USER_GUIDE、AGENTS 以及相关目录 README，并运行测试和 health。
+请检查当前功能和接口，更新 README、USER_GUIDE、AGENTS、docs/superpowers/specs 以及相关目录 README，并运行测试、lint、graph 和 health。
 ```
 
 ## 维护建议
 
 - 每次 ingest 后都运行 `python tools/health.py`。
-- 每次改工具接口、能力边界或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md` 和 `AGENTS.md`。
+- 每次改工具接口、能力边界或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md`、`AGENTS.md`、`docs/superpowers/specs` 和相关目录 README。
 - 不要手动绕过 `wiki/index.md` 和 `wiki/log.md`。
 - 不要直接覆盖 `raw/originals/` 里的既有文件。
 - 概念页不要太早泛滥；只有能复用的概念才单独成页。

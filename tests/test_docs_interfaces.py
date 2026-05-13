@@ -37,12 +37,27 @@ class DocsInterfaceTests(unittest.TestCase):
 
     def test_raw_and_graph_docs_describe_current_outputs(self):
         raw = self.read("raw/README.md")
+        fixture_raw = self.read("examples/ingest/raw/README.md")
         graph = self.read("graph/README.md")
         self.assertIn("local Markdown/text conversion", raw)
         self.assertIn("does not update source-manifest.jsonl", raw)
+        self.assertIn("local Markdown/text conversion", fixture_raw)
+        self.assertIn("does not update source-manifest.jsonl", fixture_raw)
+        self.assertNotIn("example.pdf", raw)
+        self.assertNotIn("example.pdf", fixture_raw)
         self.assertIn("graph.json", graph)
         self.assertIn("graph.html", graph)
         self.assertIn("graph-report.md", graph)
+
+    def test_maintenance_docs_include_current_verification(self):
+        agents = self.read("AGENTS.md")
+        guide = self.read("USER_GUIDE.md")
+        self.assertIn("python -m unittest tests/test_docs_interfaces.py", agents)
+        self.assertIn("python tools/lint.py", agents)
+        self.assertIn("python tools/build_graph.py", agents)
+        self.assertIn("cd examples/ingest && python tools/lint.py", agents)
+        self.assertIn("docs/superpowers/specs", guide)
+        self.assertIn("相关目录 README", guide)
 
     def test_referenced_design_docs_reflect_interface_v1(self):
         design = self.read("docs/superpowers/specs/2026-05-12-muvywiki-design.md")
@@ -52,6 +67,14 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertNotIn("reserved interfaces with documented command behavior", design)
         self.assertNotIn("must use exit code `3`", design)
         self.assertNotIn("remain reserved interfaces", ingest)
+
+    def test_historical_plans_are_labeled(self):
+        initial = self.read("docs/superpowers/plans/2026-05-12-muvywiki-implementation.md")
+        ingest = self.read("docs/superpowers/plans/2026-05-13-ingest-v2.md")
+        interface = self.read("docs/superpowers/plans/2026-05-13-interface-v1.md")
+        self.assertIn("Historical plan", initial)
+        self.assertIn("Historical plan", ingest)
+        self.assertIn("Historical plan", interface)
 
 
 if __name__ == "__main__":
