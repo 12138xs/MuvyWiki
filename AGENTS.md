@@ -7,15 +7,19 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 - `raw/` is append-only source storage.
 - `wiki/` is the maintained knowledge layer.
 - `templates/` defines canonical page shapes.
-- `tools/` contains deterministic checks and reserved extension interfaces.
+- `tools/` contains deterministic checks and lightweight local interfaces.
 
-## Implemented and Reserved Interfaces
+## Implemented Interfaces
 
 Implemented deterministic interfaces:
 
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
-- `python tools/health.py --json` returns machine-readable health output.
+- `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/graph-report.md`.
+- `python tools/build_graph.py` writes local graph artifacts under `graph/`.
+- `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 - `python -m unittest discover -s tests` runs the repository test suite.
+
+Conversion does not equal ingest. After using `convert.py`, agents must still perform the ingest workflow before claiming a source has entered MuvyWiki.
 
 Implemented agent-driven interfaces:
 
@@ -23,13 +27,7 @@ Implemented agent-driven interfaces:
 - Query and synthesis saving are protocol-driven through `wiki/index.md`, relevant wiki pages, `templates/synthesis.md`, and `wiki/log.md`.
 - `examples/ingest/` is a self-contained health-checked fixture showing one successful ingest.
 
-Reserved interfaces:
-
-- `python tools/lint.py` is reserved for future semantic linting and returns exit code `3`.
-- `python tools/build_graph.py` is reserved for future graph generation and returns exit code `3`.
-- `python tools/convert.py <input> --out raw/converted/<file>` is reserved for future conversion. It currently validates that `--out` stays under `raw/converted/`, then returns exit code `3`.
-
-Do not present reserved tools as completed functionality. If a task needs semantic lint, graph generation, PDF conversion, Office conversion, web fetching, or HTML rendering, report that the interface is reserved and ask for converted Markdown/text or a future implementation task.
+Unsupported conversion inputs include PDF, Office documents, remote URLs, rendered HTML, and binary files. If a task needs those formats, ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
 
 ## Raw Source Rules
 
@@ -156,7 +154,7 @@ Run `python tools/health.py` after structural edits and after ingest. Use `pytho
 
 ## Documentation Maintenance
 
-When functionality, reserved interfaces, or workflow rules change, keep these documents aligned:
+When functionality, interface capabilities, or workflow rules change, keep these documents aligned:
 
 - `README.md` for project status, command summary, and documentation map.
 - `USER_GUIDE.md` for user-facing workflows and current capabilities.

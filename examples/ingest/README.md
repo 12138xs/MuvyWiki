@@ -29,6 +29,13 @@ cd examples/ingest
 python tools/health.py
 ```
 
+The fixture also supports:
+
+```bash
+python tools/lint.py
+python tools/build_graph.py
+```
+
 From the repository root, the test suite also validates this fixture:
 
 ```bash

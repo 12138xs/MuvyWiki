@@ -7,7 +7,7 @@ This directory is a self-contained fixture that demonstrates one successful agen
 - `raw/` is append-only source storage.
 - `wiki/` is the maintained knowledge layer.
 - `templates/` defines canonical page shapes.
-- `tools/` contains deterministic checks and reserved extension interfaces.
+- `tools/` contains deterministic checks and lightweight local interfaces.
 
 ## Raw Source Rules
 
@@ -125,3 +125,11 @@ Next step: <specific user action or agent action>
 ## Health Requirements
 
 Run `python tools/health.py` after structural edits and after ingest. Use `python tools/health.py --json` when machine-readable evidence is useful.
+
+## Local Interfaces
+
+- `python tools/lint.py` checks semantic-lite maintenance issues in the fixture.
+- `python tools/build_graph.py` writes fixture graph artifacts under `graph/`.
+- `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
+
+Conversion does not equal ingest. After using `convert.py`, agents must still update `raw/source-manifest.jsonl`, wiki pages, index, and log before claiming a source has entered the fixture.

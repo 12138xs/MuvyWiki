@@ -328,8 +328,8 @@ Ingest v2 must not break v1:
 
 - Existing health checks must keep passing.
 - Existing generic templates remain valid.
-- `tools/lint.py`, `tools/build_graph.py`, and `tools/convert.py` remain reserved interfaces.
-- No graph, lint, or conversion behavior is required for ingest v2.
+- Interface v1 update: `tools/lint.py`, `tools/build_graph.py`, and local Markdown/text `tools/convert.py` are implemented lightweight interfaces.
+- No graph, lint, or conversion behavior is required to complete ingest v2, but agents may use implemented tools as extra validation or pre-ingest preparation.
 
 ## Future Hooks
 

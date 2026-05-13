@@ -20,8 +20,8 @@ Use a hybrid of the lightweight Astro-Han style and the fuller SamurAIGPT templa
 
 - Adopt Karpathy's three-layer model: `raw/`, `wiki/`, and `AGENTS.md`.
 - Include first-class `sources`, `concepts`, `entities`, and `syntheses` areas from day one.
-- Implement only lightweight deterministic tooling in version one.
-- Reserve interfaces for future graph, conversion, and semantic lint tooling without making them required for normal use.
+- Implement lightweight deterministic tooling first.
+- Preserve hooks for richer graph, conversion, and semantic lint tooling without making them required for normal use.
 
 This keeps the repository useful immediately while avoiding a later structural migration.
 
@@ -129,17 +129,17 @@ Every log entry body must include:
 
 ### `tools/`
 
-`tools/` stores deterministic helper scripts. Version one implements `health.py` as a lightweight structural check. The other files are reserved interfaces with documented command behavior, so future work can add implementation without changing the repository contract.
+`tools/` stores deterministic helper scripts. Interface v1 update: `health.py`, `lint.py`, `build_graph.py`, and local Markdown/text `convert.py` are implemented as lightweight standard-library tools. Future work can expand these interfaces without changing the repository contract.
 
 ### `graph/`
 
-`graph/` stores future graph artifacts:
+`graph/` stores generated graph artifacts:
 
 - `graph/graph.json`
 - `graph/graph.html`
 - `graph/graph-report.md`
 
-Version one creates the directory and documents the contract. Graph output is not required for basic ingest or query workflows.
+Interface v1 update: `python tools/build_graph.py` writes these artifacts from wiki frontmatter, wikilinks, source IDs, related IDs, and raw paths. Graph output is still not required for basic ingest or query workflows.
 
 ### `AGENTS.md`
 
@@ -345,7 +345,7 @@ Steps:
 13. Run `python tools/health.py`.
 14. Report changed pages and any unresolved issues.
 
-Version one prefers one source per ingest. Batch ingest is reserved for future tooling and must use `raw/source-manifest.jsonl` content hashes for idempotency.
+Version one prefers one source per ingest. Batch ingest is future tooling and must use `raw/source-manifest.jsonl` content hashes for idempotency.
 
 ### Query
 
@@ -400,7 +400,7 @@ With `--json`, output must include `status`, `issues`, and `checked_at`.
 
 Triggered by `lint`.
 
-Version one reserves the command interface and documents expected report shape. Future versions will check:
+Interface v1 update: `lint.py` implements deterministic semantic-lite checks and documents report shape. Future versions can add richer checks for:
 
 - Contradictions across pages.
 - Outdated claims superseded by newer sources.
@@ -415,21 +415,21 @@ Semantic linting should run after health passes.
 Minimum CLI contract:
 
 ```bash
-python tools/lint.py [--report graph/graph-report.md]
+python tools/lint.py [--json] [--report graph/graph-report.md]
 ```
 
-Version one may return a deterministic not-implemented result, but it must use exit code `3` and a clear message. Future implementations should exit `0` for no semantic issues, `1` for semantic issues, and `2` for invalid command usage.
+Current exit codes are `0` for no semantic issues, `1` for semantic issues, and `2` for invalid command usage or invalid report paths.
 
 ### Graph
 
 Triggered by `build graph`.
 
-Version one reserves the interface. Future versions will:
+Interface v1 update: `build_graph.py` implements the local graph interface. Current behavior:
 
-- Parse `[[WikiLinks]]` across `wiki/**/*.md`.
-- Build `graph/graph.json` with nodes and edges.
-- Produce `graph/graph.html` as a self-contained visualization.
-- Produce `graph/graph-report.md` with orphan, hub, bridge, and community findings.
+- Parses `[[WikiLinks]]`, `source_ids`, `related_ids`, and raw/provenance paths across wiki pages.
+- Builds `graph/graph.json` with nodes, edges, and summary counts.
+- Produces `graph/graph.html` as a self-contained inspection artifact.
+- Produces `graph/graph-report.md` with node and edge type summaries.
 
 Page frontmatter and link conventions in version one are designed to support this later without migration.
 
@@ -439,7 +439,7 @@ Minimum CLI contract:
 python tools/build_graph.py [--json graph/graph.json] [--html graph/graph.html] [--report graph/graph-report.md]
 ```
 
-Version one may return a deterministic not-implemented result with exit code `3`.
+Current exit codes are `0` when artifacts are written and `2` for invalid paths or write failures.
 
 `graph/graph.json` must use this schema shape:
 
@@ -452,8 +452,8 @@ Version one may return a deterministic not-implemented result with exit code `3`
       "path": "wiki/concepts/RetrievalAugmentedGeneration.md",
       "title": "Retrieval-Augmented Generation",
       "type": "concept",
-      "aliases": [],
-      "source_ids": [],
+      "tags": [],
+      "status": "seed",
       "confidence": "medium"
     }
   ],
@@ -461,9 +461,8 @@ Version one may return a deterministic not-implemented result with exit code `3`
     {
       "source": "RetrievalAugmentedGeneration",
       "target": "VectorDatabase",
-      "kind": "wikilink | related | source_support | contradiction",
-      "evidence": "wiki/concepts/RetrievalAugmentedGeneration.md",
-      "confidence": "medium"
+      "type": "wikilink | related | source | raw",
+      "path": "wiki/concepts/RetrievalAugmentedGeneration.md"
     }
   ]
 }
@@ -471,11 +470,11 @@ Version one may return a deterministic not-implemented result with exit code `3`
 
 ### Conversion
 
-Triggered implicitly during ingest when source material is not Markdown.
+Triggered before ingest when the user has local Markdown or UTF-8 text that should be normalized into `raw/converted/`.
 
-Version one reserves `tools/convert.py`. Future versions may integrate `markitdown`, high-fidelity PDF conversion, arXiv-specific conversion, and office document conversion.
+Interface v1 update: `tools/convert.py` supports local Markdown, `.markdown`, `.txt`, and extensionless UTF-8 text. Future versions may integrate `markitdown`, high-fidelity PDF conversion, arXiv-specific conversion, remote fetch, rendered HTML, and office document conversion.
 
-If conversion is unavailable, the agent should ask the user for Markdown or pasted text rather than silently skipping content.
+If conversion is unavailable for a source format, the agent should ask the user for Markdown or pasted text rather than silently skipping content.
 
 Minimum CLI contract:
 
@@ -483,7 +482,7 @@ Minimum CLI contract:
 python tools/convert.py <input_path_or_url> --out raw/converted/<slug>.md
 ```
 
-Version one may return a deterministic not-implemented result with exit code `3`. Future implementations should write converted artifacts only under `raw/converted/` and must not overwrite originals.
+Current conversion writes converted artifacts only under `raw/converted/` and refuses to overwrite existing outputs. Conversion does not update `raw/source-manifest.jsonl` or wiki pages; ingest must still record provenance.
 
 ## Naming Conventions
 
@@ -499,7 +498,7 @@ Version one may return a deterministic not-implemented result with exit code `3`
 - Never overwrite raw sources without explicit user approval.
 - If a source contradicts existing pages, record the contradiction rather than choosing a winner silently.
 - If a page link is ambiguous, report it instead of guessing.
-- If a future tool is not implemented yet, explain the missing capability and fall back to the documented manual workflow.
+- If a source format or future tool capability is not implemented yet, explain the missing capability and fall back to the documented manual workflow.
 - If a source hash already exists in `raw/source-manifest.jsonl`, treat the ingest as a duplicate unless the user explicitly wants a new source page.
 - If health checks fail after ingest, report the issue and the files involved.
 
@@ -513,13 +512,13 @@ Initial verification should include:
 - Confirming `wiki/index.md` references all initial wiki pages.
 - Confirming `wiki/log.md` contains an initialization entry.
 - Confirming source pages and `raw/source-manifest.jsonl` agree on source IDs, raw paths, and hashes.
-- Confirming reserved tools produce clear stub output or documented errors with the specified exit codes.
+- Confirming implemented tools produce documented output and exit codes.
 
 Future verification should add:
 
-- Graph generation fixture tests.
-- Conversion fixture tests for common file types.
-- Lint report fixture tests.
+- Richer graph generation fixture tests.
+- Conversion fixture tests for future document types.
+- Richer lint report fixture tests.
 - Batch ingest tests.
 
 ## References

@@ -2,7 +2,7 @@
 
 MuvyWiki 是一个由你和 LLM 共同维护的个人知识库。你负责选择资料、提出问题、判断方向；LLM 负责整理来源、生成结构化页面、维护索引、记录日志、检查结构健康。
 
-第一版适合技术文章、论文、开源项目、研究笔记和长期问题追踪，也保留了以后扩展图谱、语义 lint、批量导入和文档转换的接口。
+第一版适合技术文章、论文、开源项目、研究笔记和长期问题追踪；轻量图谱、语义 lint、本地 Markdown/text 转换接口已经可用，批量导入和复杂文档转换仍留作后续扩展。
 
 ## 快速开始
 
@@ -19,10 +19,11 @@ MuvyWiki 是一个由你和 LLM 共同维护的个人知识库。你负责选择
 ```bash
 python tools/health.py
 python tools/health.py --json
+python tools/lint.py
 python -m unittest discover -s tests
 ```
 
-`health.py` 是第一版最重要的质量门。每次新增资料、修改索引、改页面结构后，都应该运行一次。
+`health.py` 是第一版最重要的结构质量门。每次新增资料、修改索引、改页面结构后，都应该运行一次；`lint.py` 用来补充检查空章节、缺少证据、孤立页面等维护风险。
 
 ## 目录说明
 
@@ -42,8 +43,8 @@ wiki/
   syntheses/        # 值得保存的综合回答
 
 templates/          # 页面模板
-tools/              # 健康检查和预留工具接口
-graph/              # 未来图谱输出目录
+tools/              # 健康检查、lint、图谱和本地转换工具
+graph/              # 生成的图谱输出目录
 ```
 
 ## 核心原则
@@ -60,18 +61,23 @@ graph/              # 未来图谱输出目录
 
 - `python tools/health.py`：结构健康检查。
 - `python tools/health.py --json`：机器可读健康检查输出。
+- `python tools/lint.py`：语义轻量 lint，检查空章节、缺少 claims/evidence、孤立页面等维护风险。
+- `python tools/lint.py --json`：机器可读 lint 输出。
+- `python tools/lint.py --report graph/graph-report.md`：写入 Markdown lint 报告。
+- `python tools/build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+- `python tools/convert.py <input> --out raw/converted/<file>`：本地 Markdown/text 转换入口；不会自动更新 manifest 或 wiki 页面。
 - `python -m unittest discover -s tests`：项目测试套件。
 - `AGENTS.md` 里的 agent-first ingest/query 协议。
 - `templates/source.md` 和 `templates/sources/` 里的来源模板。
 - `examples/ingest/`：一个可运行的成功 ingest 示例。
 
-当前是“接口已保留，功能未实现”：
+当前仍不支持：
 
-- `python tools/lint.py`：语义 lint 入口，目前返回 exit code `3`。
-- `python tools/build_graph.py`：图谱生成入口，目前返回 exit code `3`。
-- `python tools/convert.py <input> --out raw/converted/<file>`：转换入口，目前只检查输出路径必须在 `raw/converted/` 下，然后返回 exit code `3`。
+- PDF、Office 文档、远程网页、HTML 渲染和二进制文件转换。
+- embeddings、向量检索、LLM 自动抽取和批量导入。
+- 直接把远程 URL 抓取进知识库。
 
-不要把预留工具当成已经完成的能力。比如现在不能直接让 `convert.py` 把 PDF、网页或 Office 文档转换成 Markdown；遇到这类资料时，先提供可读文本或已经转换好的 Markdown。
+转换不等于 ingest。使用 `convert.py` 之后，仍需要让 agent 按 ingest 流程更新 `raw/source-manifest.jsonl`、source 页面、index 和 log。
 
 ## 如何添加一份新资料
 
@@ -91,7 +97,7 @@ graph/              # 未来图谱输出目录
 - 需要联网抓取或渲染的 HTML。
 - 二进制文件。
 
-这些格式会在 Convert v2 里处理。现在遇到这类资料时，请先提供可读文本或转换后的 Markdown。
+这些格式仍是后续扩展。现在遇到这类资料时，请先提供可读文本或转换后的 Markdown。
 
 ### Ingest 请求示例
 
@@ -270,25 +276,25 @@ python tools/health.py --json
 
 如果 health 失败，先修 health 报告的问题，再继续 ingest 或 query 保存。
 
-## 预留工具
+## 工具接口
 
-这些工具第一版是接口，不是完整实现：
+常用工具命令：
 
 ```bash
 python tools/lint.py
+python tools/lint.py --json
+python tools/lint.py --report graph/graph-report.md
 python tools/build_graph.py
-python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
+python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
-它们目前会返回 exit code `3`，表示“接口已保留，功能未来实现”。
+`lint.py` 会检查空的必填章节、source 缺少 claims/evidence、concept 缺少 supporting sources、entity 缺少 evidence、孤立页面，以及 index 里仍保留的 `No ... yet.` 过期摘要。
 
-`convert.py` 有一个已经生效的安全检查：`--out` 必须指向 `raw/converted/` 下面的相对路径。这个检查不代表转换功能已经完成。
+`build_graph.py` 会从 wiki frontmatter、wikilinks、`source_ids`、`related_ids`、raw paths 和 provenance 生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
 
-未来用途：
+`convert.py` 支持本地 Markdown/text 输入，输出必须是 `raw/converted/` 下的新文件。它不会自动更新 `raw/source-manifest.jsonl`，也不会自动创建 source 页面。
 
-- `lint.py`：语义 lint，例如矛盾、过时说法、孤立页面、缺少概念页。
-- `build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
-- `convert.py`：PDF、arXiv、网页、Office 文档到 Markdown 的转换入口。
+PDF、Office、远程网页、HTML 渲染和二进制文件仍不支持。需要先手动提供可读文本或转换后的 Markdown。
 
 ## 推荐日常工作流
 
@@ -325,7 +331,7 @@ python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
 ## 维护建议
 
 - 每次 ingest 后都运行 `python tools/health.py`。
-- 每次改工具接口、预留能力或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md` 和 `AGENTS.md`。
+- 每次改工具接口、能力边界或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md` 和 `AGENTS.md`。
 - 不要手动绕过 `wiki/index.md` 和 `wiki/log.md`。
 - 不要直接覆盖 `raw/originals/` 里的既有文件。
 - 概念页不要太早泛滥；只有能复用的概念才单独成页。

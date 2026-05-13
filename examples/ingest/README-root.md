@@ -17,9 +17,9 @@ python tools/health.py
 python tools/health.py --json
 python tools/lint.py
 python tools/build_graph.py
-python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
+python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
 For this fixture's agent-first ingest protocol, see `AGENTS.md`. The fixture includes the base source template at `templates/source.md`; the full repository root includes additional domain-specific source templates.
 
-Reserved tools may return exit code `3` until their full implementation is added.
+`convert.py` supports local Markdown/text inputs only. PDF, Office documents, remote URLs, HTML rendering, and binary files need a readable text or Markdown artifact first.

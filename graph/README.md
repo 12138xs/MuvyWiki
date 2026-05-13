@@ -1,18 +1,16 @@
 # Graph Artifacts
 
-This directory is reserved for future graph outputs.
+This directory stores generated graph outputs.
 
 ## Current Interface Status
 
-Graph generation is not implemented yet. `python tools/build_graph.py` accepts the reserved output arguments below and returns exit code `3`.
-
-Expected future files:
+`python tools/build_graph.py` generates `graph.json`, `graph.html`, and `graph-report.md` from wiki frontmatter, wikilinks, source IDs, related IDs, and raw paths.
 
 - `graph.json` - machine-readable nodes and edges.
 - `graph.html` - self-contained visualization.
 - `graph-report.md` - graph health and structure report.
 
-Reserved command interface:
+Command interface:
 
 ```bash
 python tools/build_graph.py \
@@ -21,4 +19,4 @@ python tools/build_graph.py \
   --report graph/graph-report.md
 ```
 
-Version one does not require graph output for normal knowledge-base use.
+Graph artifacts are generated files. Regenerate them after meaningful wiki changes instead of editing them by hand.

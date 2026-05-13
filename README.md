@@ -15,9 +15,9 @@ MuvyWiki currently favors an agent-first workflow over a large command-line appl
 | Domain source templates | Implemented | technical paper, technical article, project README, meeting notes, journal entry |
 | Example ingest fixture | Implemented | `examples/ingest/` |
 | Test suite | Implemented | `python -m unittest discover -s tests` |
-| Semantic lint | Reserved | `python tools/lint.py` returns exit code `3` |
-| Graph generation | Reserved | `python tools/build_graph.py` returns exit code `3` |
-| Source conversion | Reserved | `python tools/convert.py <input> --out raw/converted/<file>` returns exit code `3` after output-path validation |
+| Semantic lint | Implemented | `python tools/lint.py`, `python tools/lint.py --json`, `python tools/lint.py --report graph/graph-report.md` |
+| Graph generation | Implemented | `python tools/build_graph.py` |
+| Source conversion | Partial | `python tools/convert.py <local-md-or-text> --out raw/converted/<file>.md` |
 
 The repository has three layers:
 
@@ -33,7 +33,7 @@ python tools/health.py --json
 python -m unittest discover -s tests
 python tools/lint.py
 python tools/build_graph.py
-python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
+python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
 Documentation map:
@@ -41,7 +41,7 @@ Documentation map:
 - `USER_GUIDE.md` - user-facing workflow and current capability guide.
 - `AGENTS.md` - operating protocol for Codex and compatible agents.
 - `raw/README.md` - source artifact and manifest rules.
-- `graph/README.md` - reserved graph output contract.
+- `graph/README.md` - graph output contract.
 - `examples/ingest/README.md` - runnable example of a successful ingest.
 
-Reserved tools return exit code `3` until their full implementation is added. Treat this as "interface reserved", not as completed lint, graph, or conversion functionality.
+`convert.py` supports local Markdown/text inputs only. PDF, Office documents, remote URLs, HTML rendering, embeddings, and LLM-based extraction remain future work.

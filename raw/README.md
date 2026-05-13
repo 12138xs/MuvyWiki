@@ -9,9 +9,11 @@
 
 ## Current Interface Status
 
-Ingest v2 supports local Markdown/text files, pasted text, and already converted Markdown. PDF, Office documents, remote webpages, and binary files are not converted automatically yet.
+Ingest v2 supports local Markdown/text files, pasted text, and already converted Markdown. `tools/convert.py` supports local Markdown/text conversion into `raw/converted/`.
 
-`tools/convert.py` is the reserved conversion interface. It currently enforces that `--out` stays under `raw/converted/`, then returns exit code `3` because conversion is not implemented.
+`tools/convert.py` does not update source-manifest.jsonl. The ingest workflow records artifacts and provenance after conversion.
+
+PDF, Office documents, remote webpages, HTML rendering, and binary files are not converted automatically yet.
 
 ## Manifest Format
 

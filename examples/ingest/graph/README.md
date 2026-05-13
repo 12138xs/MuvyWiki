@@ -1,11 +1,11 @@
 # Graph Artifacts
 
-This directory is reserved for future graph outputs.
+This directory stores generated graph outputs.
 
-Expected future files:
+`python tools/build_graph.py` generates these files from fixture wiki frontmatter, wikilinks, source IDs, related IDs, and raw paths:
 
 - `graph.json` - machine-readable nodes and edges.
 - `graph.html` - self-contained visualization.
 - `graph-report.md` - graph health and structure report.
 
-Version one does not require graph output for normal knowledge-base use.
+Regenerate graph artifacts after meaningful fixture wiki changes instead of editing generated files by hand.
