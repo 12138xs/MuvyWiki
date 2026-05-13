@@ -68,6 +68,44 @@ published_at: null
             with self.assertRaises(ValueError):
                 wiki_utils.safe_child_path(root, "raw/converted/../originals/example.md", allowed)
 
+    def test_safe_relative_output_rejects_required_parent_symlink(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            outside = root / "outside"
+            outside.mkdir()
+            raw = root / "raw"
+            raw.mkdir()
+            converted = raw / "converted"
+            converted.symlink_to(outside, target_is_directory=True)
+
+            with self.assertRaises(ValueError):
+                wiki_utils.safe_child_path(root, "raw/converted/example.md", converted)
+
+    def test_safe_relative_output_rejects_nested_parent_symlink(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            allowed = root / "raw" / "converted"
+            allowed.mkdir(parents=True)
+            outside = root / "outside"
+            outside.mkdir()
+            nested = allowed / "nested"
+            nested.symlink_to(outside, target_is_directory=True)
+
+            with self.assertRaises(ValueError):
+                wiki_utils.safe_child_path(root, "raw/converted/nested/example.md", allowed)
+
+    def test_safe_relative_output_rejects_existing_leaf_symlink(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            allowed = root / "raw" / "converted"
+            allowed.mkdir(parents=True)
+            outside = root / "outside.md"
+            output = allowed / "example.md"
+            output.symlink_to(outside)
+
+            with self.assertRaises(ValueError):
+                wiki_utils.safe_child_path(root, "raw/converted/example.md", allowed)
+
     def test_hash_bytes_uses_sha256_prefix(self):
         self.assertEqual(
             wiki_utils.sha256_bytes(b"abc"),

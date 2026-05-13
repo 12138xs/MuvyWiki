@@ -139,6 +139,36 @@ provenance:
             )
             self.assertEqual(result.returncode, 2)
 
+    def test_rejects_symlinked_graph_directory(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            shutil.rmtree(root / "graph")
+            outside = root / "outside"
+            outside.mkdir()
+            (root / "graph").symlink_to(outside, target_is_directory=True)
+
+            result = subprocess.run(
+                [sys.executable, "tools/build_graph.py", "--json", "graph/test-graph.json"],
+                cwd=root,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+
+    def test_rejects_symlinked_json_output_leaf(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            outside = root.parent / "leaked.json"
+            outside.write_text("unchanged\n", encoding="utf-8")
+            (root / "graph/test-graph.json").symlink_to(outside)
+
+            result = self.run_graph(root)
+
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(outside.read_text(encoding="utf-8"), "unchanged\n")
+
     def test_embedded_json_is_script_safe(self):
         temp_dir, root = self.make_repo()
         with temp_dir:

@@ -37,22 +37,56 @@ def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
 
 
+def _normalized_relative_parts(path: Path) -> tuple[str, ...]:
+    parts: list[str] = []
+    for part in path.parts:
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not parts:
+                raise ValueError("path must stay under .")
+            parts.pop()
+            continue
+        parts.append(part)
+    return tuple(parts)
+
+
+def _repo_relative_parts(root: Path, path: Path) -> tuple[str, ...]:
+    if not path.is_absolute():
+        return _normalized_relative_parts(path)
+    try:
+        relative = path.absolute().relative_to(root.absolute())
+    except ValueError as exc:
+        raise ValueError("required parent must stay under repository root") from exc
+    return _normalized_relative_parts(relative)
+
+
+def _reject_symlinked_parents(root: Path, parts: tuple[str, ...]) -> None:
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"path parent must not be a symlink: {current.relative_to(root).as_posix()}")
+
+
 def safe_child_path(root: Path, rel_path: str, required_parent: Path | None = None) -> Path:
     candidate = Path(rel_path)
     if candidate.is_absolute():
         raise ValueError("path must be relative")
-    root_resolved = root.resolve()
-    output = root / candidate
-    output_resolved = output.resolve()
-    parent = required_parent.resolve() if required_parent is not None else root_resolved
-    try:
-        output_resolved.relative_to(parent)
-    except ValueError as exc:
-        parent_label = parent.relative_to(root_resolved).as_posix() if parent != root_resolved else "."
-        raise ValueError(f"path must stay under {parent_label}") from exc
-    if output_resolved == parent:
+    output_parts = _normalized_relative_parts(candidate)
+    parent_parts = _repo_relative_parts(root, required_parent) if required_parent is not None else ()
+    if not output_parts:
         raise ValueError("path must point to a file")
-    return output
+    if output_parts == parent_parts:
+        raise ValueError("path must point to a file")
+    if output_parts[: len(parent_parts)] != parent_parts:
+        parent_label = Path(*parent_parts).as_posix() if parent_parts else "."
+        raise ValueError(f"path must stay under {parent_label}")
+    _reject_symlinked_parents(root, output_parts[:-1])
+    output_path = root.joinpath(*output_parts)
+    if output_path.is_symlink():
+        raise ValueError(f"path must not be a symlink: {output_path.relative_to(root).as_posix()}")
+    return output_path
 
 
 def content_after_frontmatter(text: str) -> str:
