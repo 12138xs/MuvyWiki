@@ -14,7 +14,7 @@ This repository is a personal LLM-maintained knowledge base. Follow the design i
 Implemented deterministic interfaces:
 
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
-- `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/graph-report.md`.
+- `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/lint-report.md`.
 - `python tools/build_graph.py` writes local graph artifacts under `graph/`.
 - `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 - `python -m unittest discover -s tests` runs the repository test suite.

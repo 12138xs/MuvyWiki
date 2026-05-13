@@ -15,7 +15,7 @@ MuvyWiki currently favors an agent-first workflow over a large command-line appl
 | Domain source templates | Implemented | technical paper, technical article, project README, meeting notes, journal entry |
 | Example ingest fixture | Implemented | `examples/ingest/` |
 | Test suite | Implemented | `python -m unittest discover -s tests` |
-| Semantic lint | Implemented | `python tools/lint.py`, `python tools/lint.py --json`, `python tools/lint.py --report graph/graph-report.md` |
+| Semantic lint | Implemented | `python tools/lint.py`, `python tools/lint.py --json`, `python tools/lint.py --report graph/lint-report.md` |
 | Graph generation | Implemented | `python tools/build_graph.py` |
 | Source conversion | Partial | `python tools/convert.py <local-md-or-text> --out raw/converted/<file>.md` |
 

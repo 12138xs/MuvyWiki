@@ -63,7 +63,7 @@ graph/              # 生成的图谱输出目录
 - `python tools/health.py --json`：机器可读健康检查输出。
 - `python tools/lint.py`：语义轻量 lint，检查空章节、缺少 claims/evidence、孤立页面等维护风险。
 - `python tools/lint.py --json`：机器可读 lint 输出。
-- `python tools/lint.py --report graph/graph-report.md`：写入 Markdown lint 报告。
+- `python tools/lint.py --report graph/lint-report.md`：写入 Markdown lint 报告。
 - `python tools/build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
 - `python tools/convert.py <input> --out raw/converted/<file>`：本地 Markdown/text 转换入口；不会自动更新 manifest 或 wiki 页面。
 - `python -m unittest discover -s tests`：项目测试套件。
@@ -283,7 +283,7 @@ python tools/health.py --json
 ```bash
 python tools/lint.py
 python tools/lint.py --json
-python tools/lint.py --report graph/graph-report.md
+python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
 python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```

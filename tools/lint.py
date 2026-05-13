@@ -312,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--report",
         nargs="?",
-        const="graph/graph-report.md",
+        const="graph/lint-report.md",
         help="Write a Markdown lint report under graph/.",
     )
     parser.add_argument("--json", action="store_true", help="Write machine-readable lint output.")

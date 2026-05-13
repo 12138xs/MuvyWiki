@@ -415,7 +415,7 @@ Semantic linting should run after health passes.
 Minimum CLI contract:
 
 ```bash
-python tools/lint.py [--json] [--report graph/graph-report.md]
+python tools/lint.py [--json] [--report graph/lint-report.md]
 ```
 
 Current exit codes are `0` for no semantic issues, `1` for semantic issues, and `2` for invalid command usage or invalid report paths.

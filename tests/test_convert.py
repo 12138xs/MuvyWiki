@@ -117,6 +117,15 @@ class ConvertToolTests(unittest.TestCase):
             self.assertIn("Output path already exists", result.stderr)
             self.assertEqual((root / "raw/converted/plain.md").read_text(encoding="utf-8"), "existing\n")
 
+    def test_rejects_symlink_loop_input_without_traceback(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            (root / "loop").symlink_to("loop")
+            result = self.run_convert(root, "loop", "--out", "raw/converted/loop.md")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Input path must stay inside the repository", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

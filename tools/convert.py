@@ -44,8 +44,11 @@ def repo_path(path: Path) -> str:
 
 def resolve_input(input_path: str) -> Path:
     path = Path(input_path)
-    resolved = path.resolve() if path.is_absolute() else (ROOT / path).resolve()
-    resolved.relative_to(ROOT.resolve())
+    try:
+        resolved = path.resolve() if path.is_absolute() else (ROOT / path).resolve()
+        resolved.relative_to(ROOT.resolve())
+    except RuntimeError as exc:
+        raise ValueError("input path could not be resolved") from exc
     return resolved
 
 

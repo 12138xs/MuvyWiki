@@ -50,13 +50,13 @@ All tools should:
 Command:
 
 ```bash
-python tools/lint.py [--json] [--report graph/graph-report.md]
+python tools/lint.py [--json] [--report graph/lint-report.md]
 ```
 
 Options:
 
 - `--json`: print machine-readable lint results to stdout.
-- `--report`: write a Markdown lint report. The default remains `graph/graph-report.md`.
+- `--report`: write a Markdown lint report. The default is `graph/lint-report.md`.
 
 ### Checks
 
@@ -313,7 +313,7 @@ The public command names and option names remain stable, so future richer implem
 
 - `python tools/lint.py` returns `0` on the current repository.
 - `python tools/lint.py --json` returns valid JSON.
-- `python tools/lint.py --report graph/graph-report.md` writes a Markdown report.
+- `python tools/lint.py --report graph/lint-report.md` writes a Markdown report.
 - `python tools/build_graph.py` writes JSON, HTML, and report artifacts.
 - `python tools/convert.py` converts local Markdown/text to `raw/converted/`.
 - Unsupported conversion inputs return exit code `2` with clear messages.

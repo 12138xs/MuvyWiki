@@ -273,6 +273,15 @@ No concept pages yet.
             self.assertIn("## Issues", report)
             self.assertIn("No lint issues found.", report)
 
+    def test_default_markdown_report_does_not_clobber_graph_report(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            (root / "graph/graph-report.md").write_text("# MuvyWiki Graph Report\n", encoding="utf-8")
+            result = self.run_lint(root, "--report")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual((root / "graph/graph-report.md").read_text(encoding="utf-8"), "# MuvyWiki Graph Report\n")
+            self.assertIn("# MuvyWiki Lint Report", (root / "graph/lint-report.md").read_text(encoding="utf-8"))
+
     def test_rejects_invalid_report_path(self):
         temp_dir, root = self.make_repo()
         with temp_dir:
