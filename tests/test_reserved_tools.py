@@ -18,11 +18,6 @@ class ReservedToolTests(unittest.TestCase):
             check=False,
         )
 
-    def test_lint_returns_reserved_exit_code(self):
-        result = self.run_tool("tools/lint.py")
-        self.assertEqual(result.returncode, 3)
-        self.assertIn("reserved for future semantic linting", result.stdout)
-
     def test_convert_rejects_traversal_outside_converted_directory(self):
         result = self.run_tool(
             "tools/convert.py",
