@@ -107,6 +107,16 @@ class ConvertToolTests(unittest.TestCase):
             traversal = self.run_convert(root, "raw/originals/plain.txt", "--out", "raw/converted/../originals/plain.md")
             self.assertEqual(traversal.returncode, 2)
 
+    def test_rejects_existing_output(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            (root / "raw/originals/plain.txt").write_text("hello\n", encoding="utf-8")
+            (root / "raw/converted/plain.md").write_text("existing\n", encoding="utf-8")
+            result = self.run_convert(root, "raw/originals/plain.txt", "--out", "raw/converted/plain.md")
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Output path already exists", result.stderr)
+            self.assertEqual((root / "raw/converted/plain.md").read_text(encoding="utf-8"), "existing\n")
+
 
 if __name__ == "__main__":
     unittest.main()

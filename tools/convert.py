@@ -79,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
         output_path = wiki_utils.safe_child_path(ROOT, args.out, CONVERTED_ROOT)
     except ValueError as exc:
         return fail(f"Output path must be under raw/converted/. {exc}")
+    if output_path.exists():
+        return fail("Output path already exists. Choose a new raw/converted/ path.")
 
     try:
         input_path = resolve_input(args.input_path_or_url)
