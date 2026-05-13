@@ -54,6 +54,25 @@ graph/              # 未来图谱输出目录
 
 `AGENTS.md` 是操作协议。以后让 Codex 摄取资料或回答知识库问题时，它应该遵守这里的规则。
 
+## 当前功能与接口状态
+
+当前已经可以直接使用：
+
+- `python tools/health.py`：结构健康检查。
+- `python tools/health.py --json`：机器可读健康检查输出。
+- `python -m unittest discover -s tests`：项目测试套件。
+- `AGENTS.md` 里的 agent-first ingest/query 协议。
+- `templates/source.md` 和 `templates/sources/` 里的来源模板。
+- `examples/ingest/`：一个可运行的成功 ingest 示例。
+
+当前是“接口已保留，功能未实现”：
+
+- `python tools/lint.py`：语义 lint 入口，目前返回 exit code `3`。
+- `python tools/build_graph.py`：图谱生成入口，目前返回 exit code `3`。
+- `python tools/convert.py <input> --out raw/converted/<file>`：转换入口，目前只检查输出路径必须在 `raw/converted/` 下，然后返回 exit code `3`。
+
+不要把预留工具当成已经完成的能力。比如现在不能直接让 `convert.py` 把 PDF、网页或 Office 文档转换成 Markdown；遇到这类资料时，先提供可读文本或已经转换好的 Markdown。
+
 ## 如何添加一份新资料
 
 ### Ingest v2 支持的输入
@@ -263,6 +282,8 @@ python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
 
 它们目前会返回 exit code `3`，表示“接口已保留，功能未来实现”。
 
+`convert.py` 有一个已经生效的安全检查：`--out` 必须指向 `raw/converted/` 下面的相对路径。这个检查不代表转换功能已经完成。
+
 未来用途：
 
 - `lint.py`：语义 lint，例如矛盾、过时说法、孤立页面、缺少概念页。
@@ -295,9 +316,16 @@ python tools/convert.py raw/originals/example.pdf --out raw/converted/example.md
 请运行 health，解释所有问题，并修复结构性问题。
 ```
 
+### 同步文档
+
+```text
+请检查当前功能和接口，更新 README、USER_GUIDE、AGENTS 以及相关目录 README，并运行测试和 health。
+```
+
 ## 维护建议
 
 - 每次 ingest 后都运行 `python tools/health.py`。
+- 每次改工具接口、预留能力或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md` 和 `AGENTS.md`。
 - 不要手动绕过 `wiki/index.md` 和 `wiki/log.md`。
 - 不要直接覆盖 `raw/originals/` 里的既有文件。
 - 概念页不要太早泛滥；只有能复用的概念才单独成页。
