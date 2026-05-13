@@ -73,7 +73,7 @@ Tiny RAG Note describes [[TinyRagDemo|TinyRagDemo]], a teaching project that use
 
 ## Contradictions or Tensions
 
-- none
+- No contradictions or tensions are identified in this tiny source.
 
 ## Raw Source
 

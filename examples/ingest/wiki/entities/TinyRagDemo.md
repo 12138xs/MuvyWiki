@@ -35,7 +35,7 @@ It demonstrates a minimal [[RetrievalAugmentedGeneration|Retrieval-Augmented Gen
 
 ## Contradictions or Tensions
 
-- none
+- No contradictions or tensions are identified in this tiny fixture.
 
 ## Related Concepts
 

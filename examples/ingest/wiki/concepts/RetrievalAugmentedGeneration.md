@@ -45,11 +45,11 @@ Documents are chunked, embedded, indexed, retrieved for a query, and passed to t
 
 ## Contradictions or Tensions
 
-- none
+- No contradictions or tensions are identified in this tiny fixture.
 
 ## Related Concepts
 
-- none
+- [[TinyRagDemo|TinyRagDemo]] demonstrates this concept in the fixture.
 
 ## Supporting Sources
 
