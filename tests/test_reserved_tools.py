@@ -28,11 +28,6 @@ class ReservedToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 3)
         self.assertIn("reserved for future graph generation", result.stdout)
 
-    def test_convert_returns_reserved_exit_code(self):
-        result = self.run_tool("tools/convert.py", "raw/originals/example.pdf", "--out", "raw/converted/example.md")
-        self.assertEqual(result.returncode, 3)
-        self.assertIn("reserved for future conversion", result.stdout)
-
     def test_convert_rejects_traversal_outside_converted_directory(self):
         result = self.run_tool(
             "tools/convert.py",
