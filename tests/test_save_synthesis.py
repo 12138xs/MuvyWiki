@@ -1,9 +1,11 @@
 import json
+import importlib.util
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
 from pathlib import Path
 
 
@@ -202,6 +204,63 @@ provenance:
             check=False,
         )
 
+    def import_save_module(self, root):
+        tools_path = root / "tools"
+        module_name = f"save_synthesis_under_test_{id(root)}"
+        old_path = list(sys.path)
+        old_wiki_utils = sys.modules.pop("wiki_utils", None)
+        try:
+            sys.path.insert(0, str(tools_path))
+            spec = importlib.util.spec_from_file_location(module_name, tools_path / "save_synthesis.py")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            return module
+        finally:
+            sys.path[:] = old_path
+            if old_wiki_utils is not None:
+                sys.modules["wiki_utils"] = old_wiki_utils
+            else:
+                sys.modules.pop("wiki_utils", None)
+
+    def default_namespace(self, answer_path, evidence_path, synthesis_id="rag-systems-architecture-survey"):
+        args = self.default_args(answer_path, evidence_path, synthesis_id)
+        values = {
+            "synthesis_id": None,
+            "title": None,
+            "question": None,
+            "answer_file": None,
+            "evidence_file": None,
+            "related": [],
+            "sources": [],
+            "tags": [],
+            "confidence": "medium",
+            "status": "seed",
+            "json": False,
+        }
+        index = 0
+        while index < len(args):
+            key = args[index]
+            value = args[index + 1]
+            if key == "--id":
+                values["synthesis_id"] = value
+            elif key == "--title":
+                values["title"] = value
+            elif key == "--question":
+                values["question"] = value
+            elif key == "--answer-file":
+                values["answer_file"] = value
+            elif key == "--evidence-file":
+                values["evidence_file"] = value
+            elif key == "--related":
+                values["related"].append(value)
+            elif key == "--sources":
+                values["sources"].append(value)
+            elif key == "--tags":
+                values["tags"].append(value)
+            index += 2
+        return Namespace(**values)
+
     def default_args(self, answer_path, evidence_path, synthesis_id="rag-systems-architecture-survey"):
         return [
             "--id",
@@ -260,6 +319,7 @@ provenance:
             self.assertIn("  - `wiki/syntheses/rag-systems-architecture-survey.md`", log)
             self.assertIn("  - `wiki/index.md`", log)
             self.assertIn("  - `wiki/log.md`", log)
+            self.assertIn("  - `source-one`", log)
 
             health = subprocess.run(
                 [sys.executable, "tools/health.py"],
@@ -343,6 +403,96 @@ provenance:
             )
             self.assertEqual(result.returncode, 2)
             self.assertEqual(target.read_text(encoding="utf-8"), "do not alter\n")
+
+    def test_rejects_symlinked_index_without_altering_target(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            answer_path, evidence_path = self.write_input_files(root)
+            original_index = (root / "wiki/index.md").read_text(encoding="utf-8")
+            original_log = (root / "wiki/log.md").read_text(encoding="utf-8")
+            outside_target = root / "outside-index.md"
+            outside_target.write_text("outside target\n", encoding="utf-8")
+            (root / "wiki/index.md").unlink()
+            (root / "wiki/index.md").symlink_to(outside_target)
+
+            result = self.run_save(root, *self.default_args(answer_path, evidence_path))
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(outside_target.read_text(encoding="utf-8"), "outside target\n")
+            self.assertEqual((root / "wiki/log.md").read_text(encoding="utf-8"), original_log)
+            self.assertFalse((root / "wiki/syntheses/rag-systems-architecture-survey.md").exists())
+            self.assertNotEqual((root / "wiki/index.md").read_text(encoding="utf-8"), original_index)
+
+    def test_replace_failure_rolls_back_all_changes_and_cleans_temps(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            answer_path, evidence_path = self.write_input_files(root)
+            before_index = (root / "wiki/index.md").read_text(encoding="utf-8")
+            before_log = (root / "wiki/log.md").read_text(encoding="utf-8")
+            save_synthesis = self.import_save_module(root)
+            args = self.default_namespace(answer_path, evidence_path)
+            replace_file = getattr(save_synthesis, "replace_file", None)
+            self.assertIsNotNone(replace_file)
+
+            def fail_on_log(temp_path, target_path):
+                if target_path.name == "log.md":
+                    raise OSError("simulated replace failure")
+                return replace_file(temp_path, target_path)
+
+            save_synthesis.replace_file = fail_on_log
+
+            with self.assertRaises(OSError):
+                save_synthesis.save(args)
+
+            self.assertFalse((root / "wiki/syntheses/rag-systems-architecture-survey.md").exists())
+            self.assertEqual((root / "wiki/index.md").read_text(encoding="utf-8"), before_index)
+            self.assertEqual((root / "wiki/log.md").read_text(encoding="utf-8"), before_log)
+            self.assertEqual(list((root / "wiki/syntheses").glob("*.tmp")), [])
+            self.assertEqual(list((root / "wiki").glob("*.tmp")), [])
+
+    def test_unknown_wikilink_in_evidence_does_not_mutate_files(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            answer_path, evidence_path = self.write_input_files(root, evidence="- [[MissingConcept]] is cited.")
+            before_index = (root / "wiki/index.md").read_text(encoding="utf-8")
+            before_log = (root / "wiki/log.md").read_text(encoding="utf-8")
+
+            result = self.run_save(root, *self.default_args(answer_path, evidence_path))
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unknown wikilink target: MissingConcept", result.stderr)
+            self.assertFalse((root / "wiki/syntheses/rag-systems-architecture-survey.md").exists())
+            self.assertEqual((root / "wiki/index.md").read_text(encoding="utf-8"), before_index)
+            self.assertEqual((root / "wiki/log.md").read_text(encoding="utf-8"), before_log)
+
+    def test_rejects_unsafe_title_and_question_without_mutation(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            answer_path, evidence_path = self.write_input_files(root)
+            before_index = (root / "wiki/index.md").read_text(encoding="utf-8")
+            before_log = (root / "wiki/log.md").read_text(encoding="utf-8")
+
+            bad_title = self.run_save(
+                root,
+                *self.default_args(answer_path, evidence_path),
+                "--title",
+                "Injected\nTitle",
+            )
+            bad_question = self.run_save(
+                root,
+                *self.default_args(answer_path, evidence_path, synthesis_id="bad-question-case"),
+                "--question",
+                "What breaks?\nA second entry",
+            )
+
+            self.assertEqual(bad_title.returncode, 1)
+            self.assertIn("--title contains unsupported characters", bad_title.stderr)
+            self.assertEqual(bad_question.returncode, 1)
+            self.assertIn("--question contains unsupported characters", bad_question.stderr)
+            self.assertFalse((root / "wiki/syntheses/rag-systems-architecture-survey.md").exists())
+            self.assertFalse((root / "wiki/syntheses/bad-question-case.md").exists())
+            self.assertEqual((root / "wiki/index.md").read_text(encoding="utf-8"), before_index)
+            self.assertEqual((root / "wiki/log.md").read_text(encoding="utf-8"), before_log)
 
 
 if __name__ == "__main__":

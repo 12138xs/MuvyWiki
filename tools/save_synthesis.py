@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import uuid
 from pathlib import Path
 
 import wiki_utils
@@ -18,6 +20,11 @@ ALLOWED_STATUSES = {"seed", "active", "archived", "needs-review"}
 
 class ValidationError(Exception):
     """Raised when requested synthesis content is invalid."""
+
+
+MISSING = object()
+UNSAFE_TITLE_CHARS = set("\n\r][`")
+UNSAFE_QUESTION_CHARS = set("\n\r`")
 
 
 def split_values(values: list[str] | None) -> list[str]:
@@ -43,6 +50,11 @@ def read_required_file(path_value: str, label: str) -> str:
 def require_useful(value: str, label: str) -> None:
     if not wiki_utils.has_useful_text(value):
         raise ValidationError(f"{label} must be useful/non-empty")
+
+
+def reject_unsafe_single_line(value: str, label: str, unsafe_chars: set[str]) -> None:
+    if any(char in value for char in unsafe_chars):
+        raise ValidationError(f"{label} contains unsupported characters")
 
 
 def validate_ids(
@@ -175,7 +187,7 @@ def build_index_text(index_text: str, synthesis_id: str, title: str, question: s
 
 
 def append_log_text(log_text: str, synthesis_id: str, title: str, source_ids: list[str], today: str) -> str:
-    source_lines = "\n".join(f"  - {source_id}" for source_id in source_ids) if source_ids else "  - none"
+    source_lines = "\n".join(f"  - `{source_id}`" for source_id in source_ids) if source_ids else "  - none"
     entry = f"""## [{today}] query | {title}
 
 - Changed pages:
@@ -190,6 +202,74 @@ def append_log_text(log_text: str, synthesis_id: str, title: str, source_ids: li
   - none
 """
     return log_text.rstrip() + "\n\n" + entry
+
+
+def metadata_path(rel_path: str) -> Path:
+    return wiki_utils.safe_child_path(
+        ROOT,
+        rel_path,
+        required_parent=ROOT / "wiki",
+    )
+
+
+def validate_wikilinks(text: str, allowed_ids: set[str]) -> None:
+    for target in sorted(wiki_utils.extract_wikilinks(text)):
+        if target not in allowed_ids:
+            raise ValidationError(f"unknown wikilink target: {target}")
+
+
+def temp_sibling_path(target: Path) -> Path:
+    return target.with_name(f"{target.name}.{uuid.uuid4().hex}.tmp")
+
+
+def replace_file(temp_path: Path, target_path: Path) -> None:
+    os.replace(temp_path, target_path)
+
+
+def write_temp_file(temp_path: Path, text: str) -> None:
+    temp_path.write_text(text, encoding="utf-8")
+
+
+def restore_originals(replaced: list[Path], originals: dict[Path, object]) -> None:
+    for target in reversed(replaced):
+        original = originals[target]
+        try:
+            if original is MISSING:
+                if target.exists() or target.is_symlink():
+                    target.unlink()
+            else:
+                target.write_text(str(original), encoding="utf-8")
+        except OSError:
+            pass
+
+
+def transactional_write_texts(contents: dict[Path, str]) -> None:
+    temps: dict[Path, Path] = {}
+    originals: dict[Path, object] = {}
+    replaced: list[Path] = []
+
+    try:
+        for target, text in contents.items():
+            if target.is_symlink():
+                raise ValueError(f"path must not be a symlink: {target.relative_to(ROOT).as_posix()}")
+            originals[target] = target.read_text(encoding="utf-8") if target.exists() else MISSING
+            temp_path = temp_sibling_path(target)
+            temps[target] = temp_path
+            write_temp_file(temp_path, text)
+
+        for target in contents:
+            replace_file(temps[target], target)
+            replaced.append(target)
+    except Exception:
+        restore_originals(replaced, originals)
+        raise
+    finally:
+        for temp_path in temps.values():
+            try:
+                if temp_path.exists() or temp_path.is_symlink():
+                    temp_path.unlink()
+            except OSError:
+                pass
 
 
 def validate_request(args: argparse.Namespace) -> tuple[Path, str, str, list[str], list[str], list[str], dict[str, wiki_utils.WikiPage]]:
@@ -207,6 +287,8 @@ def validate_request(args: argparse.Namespace) -> tuple[Path, str, str, list[str
 
     require_useful(args.title, "--title")
     require_useful(args.question, "--question")
+    reject_unsafe_single_line(args.title, "--title", UNSAFE_TITLE_CHARS)
+    reject_unsafe_single_line(args.question, "--question", UNSAFE_QUESTION_CHARS)
 
     answer = read_required_file(args.answer_file, "--answer-file")
     evidence = read_required_file(args.evidence_file, "--evidence-file")
@@ -227,10 +309,10 @@ def validate_request(args: argparse.Namespace) -> tuple[Path, str, str, list[str
 
 
 def save(args: argparse.Namespace) -> dict[str, object]:
-    destination, answer, evidence, tags, source_ids, related_ids, _pages = validate_request(args)
+    destination, answer, evidence, tags, source_ids, related_ids, pages = validate_request(args)
 
-    index_path = ROOT / "wiki" / "index.md"
-    log_path = ROOT / "wiki" / "log.md"
+    index_path = metadata_path("wiki/index.md")
+    log_path = metadata_path("wiki/log.md")
     index_text = wiki_utils.read_text(index_path)
     log_text = wiki_utils.read_text(log_path)
 
@@ -251,10 +333,15 @@ def save(args: argparse.Namespace) -> dict[str, object]:
     )
     next_index = build_index_text(index_text, args.synthesis_id.strip(), args.title.strip(), args.question.strip(), today)
     next_log = append_log_text(log_text, args.synthesis_id.strip(), args.title.strip(), source_ids, today)
+    validate_wikilinks(synthesis_text, set(pages) | {args.synthesis_id.strip()})
 
-    wiki_utils.write_text(destination, synthesis_text)
-    wiki_utils.write_text(index_path, next_index)
-    wiki_utils.write_text(log_path, next_log)
+    transactional_write_texts(
+        {
+            destination: synthesis_text,
+            index_path: next_index,
+            log_path: next_log,
+        }
+    )
 
     rel_path = wiki_utils.repo_relative(ROOT, destination)
     return {
