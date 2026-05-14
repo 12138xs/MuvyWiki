@@ -63,6 +63,8 @@ tools/
   health.py
   lint.py
   build_graph.py
+  query.py
+  save_synthesis.py
   convert.py
 
 graph/
@@ -353,7 +355,7 @@ Triggered by requests such as `query: ...`, `我对 X 知道什么？`, or `比�
 
 Steps:
 
-1. Use `python tools/query.py "retrieval augmented generation" --json` for deterministic first-pass context when useful.
+1. Use `python tools/query.py "<user query>" --json` for deterministic first-pass context when useful.
 2. Read `wiki/index.md` when manually navigating.
 3. Read the relevant wiki pages.
 4. Answer from wiki content first.
@@ -367,7 +369,7 @@ Plain queries do not modify files unless the user asks to save or archive the an
 Minimum CLI contract:
 
 ```bash
-python tools/query.py "retrieval augmented generation" [--json]
+python tools/query.py "<user query>" [--json]
 ```
 
 The query helper builds local context packets from wiki pages. It does not call an LLM, fetch remote sources, or modify files.

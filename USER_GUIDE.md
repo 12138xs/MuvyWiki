@@ -230,7 +230,7 @@ GPT5.md
 
 查询时，Codex 应该先读 `wiki/index.md`，再读相关页面，然后基于知识库回答。若使用了模型自身知识而不是 wiki 内容，应该明确标注。
 
-`python tools/query.py "retrieval augmented generation"` 可以作为确定性的第一轮上下文查找。它会从本地 wiki 找到可能相关的页面和证据包，但不会调用 LLM，也不会替你生成最终答案。Agent 仍然需要阅读匹配到的 wiki 页面，优先基于 wiki 内容回答，并用 `[[WikiLinks]]` 标注来源。
+`python tools/query.py "retrieval augmented generation"` 可以作为确定性的第一轮上下文查找。它会从本地 wiki 找到可能相关的页面、链接和匹配分数，但不会调用 LLM，也不会替你生成最终答案。需要章节摘录时可以加 `--include-sections`。Agent 仍然需要阅读匹配到的 wiki 页面，优先基于 wiki 内容回答，并用 `[[WikiLinks]]` 标注来源。
 
 需要机器可读结果时可以运行：
 

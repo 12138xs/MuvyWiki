@@ -9,8 +9,7 @@ This directory stores generated graph outputs.
 - `graph.json` - machine-readable nodes and edges.
 - `graph.html` - self-contained visualization.
 - `graph-report.md` - graph health and structure report.
-
-saved syntheses appear in graph outputs
+- Saved synthesis pages from `wiki/syntheses/` appear as `synthesis` nodes in graph outputs.
 
 Command interface:
 

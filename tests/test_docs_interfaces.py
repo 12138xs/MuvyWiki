@@ -77,7 +77,9 @@ class DocsInterfaceTests(unittest.TestCase):
         for text in (readme, guide, agents):
             self.assertIn("python tools/query.py", text)
             self.assertIn("python tools/save_synthesis.py", text)
-        self.assertIn("saved syntheses appear in graph outputs", graph)
+        self.assertIn("wiki/syntheses/", graph)
+        self.assertIn("synthesis` nodes", graph)
+        self.assertIn("graph outputs", graph)
         self.assertIn("## Query & Synthesis v1 update", design)
 
     def test_historical_plans_are_labeled(self):

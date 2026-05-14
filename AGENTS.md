@@ -145,7 +145,7 @@ Next step: <specific user action or agent action>
 ## Query Workflow
 
 - Read `wiki/index.md` first when manually navigating.
-- Prefer `python tools/query.py "retrieval augmented generation" --json` for deterministic first-pass context.
+- Prefer `python tools/query.py "<user query>" --json` for deterministic first-pass context.
 - Read matched wiki pages before answering.
 - Answer from wiki content first and cite pages with `[[WikiLinks]]`.
 - Clearly label anything from model knowledge rather than wiki pages.
