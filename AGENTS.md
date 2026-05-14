@@ -16,15 +16,20 @@ Implemented deterministic interfaces:
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
 - `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/lint-report.md`.
 - `python tools/build_graph.py` writes local graph artifacts under `graph/`.
+- `python tools/query.py "retrieval augmented generation"` builds a local context packet for an agent answer.
+- `python tools/query.py "retrieval augmented generation" --json` emits the local context packet as JSON.
+- `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` persists a user-approved synthesis page and updates index/log.
 - `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 - `python -m unittest discover -s tests` runs the repository test suite.
 
 Conversion does not equal ingest. After using `convert.py`, agents must still perform the ingest workflow before claiming a source has entered MuvyWiki.
 
+`query.py` and `save_synthesis.py` are agent-facing helpers. They do not call an LLM, fetch remote content, or ingest new raw sources.
+
 Implemented agent-driven interfaces:
 
 - Ingest is protocol-driven through this file, source templates, `raw/source-manifest.jsonl`, wiki pages, index, and log.
-- Query and synthesis saving are protocol-driven through `wiki/index.md`, relevant wiki pages, `templates/synthesis.md`, and `wiki/log.md`.
+- Query and synthesis saving are supported by deterministic helpers plus protocol-driven review through `wiki/index.md`, relevant wiki pages, `templates/synthesis.md`, and `wiki/log.md`.
 - `examples/ingest/` is a self-contained health-checked fixture showing one successful ingest.
 
 Unsupported conversion inputs include PDF, Office documents, remote URLs, rendered HTML, and binary files. If a task needs those formats, ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
@@ -139,13 +144,15 @@ Next step: <specific user action or agent action>
 
 ## Query Workflow
 
-- Read `wiki/index.md` first.
-- Read relevant wiki pages before answering.
+- Read `wiki/index.md` first when manually navigating.
+- Prefer `python tools/query.py "retrieval augmented generation" --json` for deterministic first-pass context.
+- Read matched wiki pages before answering.
 - Answer from wiki content first and cite pages with `[[WikiLinks]]`.
 - Clearly label anything from model knowledge rather than wiki pages.
 - Ask before expanding to web search or new external sources.
-- If an answer has long-term value, ask whether to save it as a synthesis page.
-- If the user chooses to save a synthesis page, use `templates/synthesis.md`, update `wiki/index.md` and `wiki/log.md`, and make the log entry with `templates/log-entry.md`.
+- Ask before saving synthesis.
+- If saving, prepare answer/evidence Markdown and use `tools/save_synthesis.py`.
+- Run `python tools/health.py` and `python tools/lint.py` after saving.
 - Append to `raw/source-manifest.jsonl` only when the saved work also creates a new raw or converted artifact.
 
 ## Health Requirements

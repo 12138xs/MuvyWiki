@@ -10,6 +10,8 @@ This directory stores generated graph outputs.
 - `graph.html` - self-contained visualization.
 - `graph-report.md` - graph health and structure report.
 
+saved syntheses appear in graph outputs
+
 Command interface:
 
 ```bash

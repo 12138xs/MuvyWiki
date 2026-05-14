@@ -17,6 +17,8 @@ MuvyWiki currently favors an agent-first workflow over a large command-line appl
 | Test suite | Implemented | `python -m unittest discover -s tests` |
 | Semantic lint | Implemented | `python tools/lint.py`, `python tools/lint.py --json`, `python tools/lint.py --report graph/lint-report.md` |
 | Graph generation | Implemented | `python tools/build_graph.py` |
+| Query context | Implemented | `python tools/query.py "retrieval augmented generation"`, `python tools/query.py "retrieval augmented generation" --json` |
+| Synthesis saving | Implemented | `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` |
 | Source conversion | Partial | `python tools/convert.py <local-md-or-text> --out raw/converted/<file>.md` |
 
 The repository has three layers:
@@ -33,6 +35,9 @@ python tools/health.py --json
 python -m unittest discover -s tests
 python tools/lint.py
 python tools/build_graph.py
+python tools/query.py "retrieval augmented generation"
+python tools/query.py "retrieval augmented generation" --json
+python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md
 python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
@@ -45,5 +50,7 @@ Documentation map:
 - `examples/ingest/README.md` - runnable example of a successful ingest.
 - `docs/superpowers/specs/` - design specs that current agent docs reference.
 - `docs/superpowers/plans/` - historical implementation plans.
+
+`query.py` and `save_synthesis.py` are agent-facing helpers that retrieve context and persist approved syntheses, but do not call an LLM or ingest new raw sources.
 
 `convert.py` supports local Markdown/text inputs only. PDF, Office documents, remote URLs, HTML rendering, embeddings, and LLM-based extraction remain future work.
