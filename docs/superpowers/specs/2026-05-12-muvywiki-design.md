@@ -551,7 +551,7 @@ Future verification should add:
 
 ## Query & Synthesis v1 update
 
-As of 2026-05-14, `tools/query.py` builds local context packets and `tools/save_synthesis.py` persists user-approved synthesis pages while updating index/log, without LLM calls, remote fetches, or raw-source ingestion.
+As of 2026-05-14, `tools/query.py` and `tools/save_synthesis.py` are deterministic helpers. `tools/query.py` builds local context packets and `tools/save_synthesis.py` persists user-approved synthesis pages while updating index/log, without LLM calls, remote fetches, or raw-source ingestion.
 
 ## References
 

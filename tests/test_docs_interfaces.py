@@ -78,7 +78,7 @@ class DocsInterfaceTests(unittest.TestCase):
             self.assertIn("python tools/query.py", text)
             self.assertIn("python tools/save_synthesis.py", text)
         self.assertIn("saved syntheses appear in graph outputs", graph)
-        self.assertIn("Query & Synthesis v1 update", design)
+        self.assertIn("## Query & Synthesis v1 update", design)
 
     def test_historical_plans_are_labeled(self):
         initial = self.read("docs/superpowers/plans/2026-05-12-muvywiki-implementation.md")
