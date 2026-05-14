@@ -182,10 +182,45 @@ Retrieval before generation.
             self.assertIn("Retrieval before generation.", by_id["RAG"].sections["Definition"])
             self.assertEqual(wiki_utils.canonical_page_map(root)["RAG"].path.name, "RAG.md")
 
+    def test_canonical_page_map_rejects_duplicate_canonical_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "wiki/concepts").mkdir(parents=True)
+            (root / "wiki/entities").mkdir(parents=True)
+            (root / "wiki/sources").mkdir(parents=True)
+            (root / "wiki/syntheses").mkdir(parents=True)
+            for name in ("First", "Second"):
+                (root / "wiki/concepts" / f"{name}.md").write_text(
+                    """---
+canonical_id: "Duplicate"
+type: concept
+title: "Duplicate"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths: []
+created: 2026-05-14
+last_updated: 2026-05-14
+status: seed
+confidence: medium
+---
+
+# Duplicate
+""",
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "duplicate canonical_id 'Duplicate'"):
+                wiki_utils.canonical_page_map(root)
+
     def test_id_yaml_and_excerpt_helpers(self):
         self.assertTrue(wiki_utils.is_kebab_id("rag-systems-architecture-survey"))
         self.assertFalse(wiki_utils.is_kebab_id("RAGSystems"))
         self.assertEqual(wiki_utils.yaml_list(["rag", "agents"]), ['  - "rag"', '  - "agents"'])
+        self.assertEqual(wiki_utils.yaml_list([r"path\to\file"]), [r'  - "path\\to\\file"'])
+        self.assertEqual(wiki_utils.yaml_list(['quote "here"']), [r'  - "quote \"here\""'])
+        self.assertEqual(wiki_utils.yaml_list(["line\nbreak"]), [r'  - "line\nbreak"'])
         self.assertEqual(wiki_utils.yaml_list([]), ["[]"])
         excerpt = wiki_utils.bounded_excerpt("alpha beta gamma delta", {"gamma"}, limit=16)
         self.assertIn("gamma", excerpt)

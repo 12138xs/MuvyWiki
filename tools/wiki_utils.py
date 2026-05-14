@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -251,7 +252,15 @@ def load_wiki_pages(root: Path) -> list[WikiPage]:
 
 
 def canonical_page_map(root: Path) -> dict[str, WikiPage]:
-    return {page.id: page for page in load_wiki_pages(root)}
+    pages: dict[str, WikiPage] = {}
+    for page in load_wiki_pages(root):
+        existing = pages.get(page.id)
+        if existing is not None:
+            raise ValueError(
+                f"duplicate canonical_id {page.id!r}: {existing.rel_path} and {page.rel_path}"
+            )
+        pages[page.id] = page
+    return pages
 
 
 def is_kebab_id(value: str) -> bool:
@@ -261,8 +270,7 @@ def is_kebab_id(value: str) -> bool:
 def yaml_list(values: list[str]) -> list[str]:
     if not values:
         return ["[]"]
-    escaped = [value.replace('"', '\\"') for value in values]
-    return [f'  - "{value}"' for value in escaped]
+    return [f"  - {json.dumps(value)}" for value in values]
 
 
 def bounded_excerpt(text: str, terms: set[str], limit: int = 240) -> str:
