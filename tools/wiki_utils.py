@@ -113,7 +113,9 @@ def parse_scalar(value: str) -> Any:
         if not inner:
             return []
         return [parse_scalar(item.strip()) for item in inner.split(",")]
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
         return value[1:-1]
     return value
 

@@ -226,6 +226,14 @@ confidence: medium
         self.assertIn("gamma", excerpt)
         self.assertLessEqual(len(excerpt), 19)
 
+    def test_yaml_list_values_round_trip_through_frontmatter_parser(self):
+        values = [r"path\to\file", 'quote "here"', "line\nbreak"]
+        text = "---\nvalues:\n" + "\n".join(wiki_utils.yaml_list(values)) + "\n---\n"
+
+        data = wiki_utils.parse_frontmatter(text)
+
+        self.assertEqual(data["values"], values)
+
 
 if __name__ == "__main__":
     unittest.main()
