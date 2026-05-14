@@ -112,6 +112,128 @@ published_at: null
             "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         )
 
+    def test_page_helpers_load_metadata_and_body(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "wiki/concepts").mkdir(parents=True)
+            (root / "wiki/entities").mkdir(parents=True)
+            (root / "wiki/sources").mkdir(parents=True)
+            (root / "wiki/syntheses").mkdir(parents=True)
+            (root / "wiki/overview.md").write_text(
+                """---
+canonical_id: "overview"
+type: overview
+title: "Overview"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths: []
+created: 2026-05-14
+last_updated: 2026-05-14
+status: seed
+confidence: medium
+---
+
+# Overview
+
+## Summary
+
+Root page.
+""",
+                encoding="utf-8",
+            )
+            (root / "wiki/concepts/RAG.md").write_text(
+                """---
+canonical_id: "RAG"
+type: concept
+title: "Retrieval-Augmented Generation"
+tags:
+  - retrieval
+aliases:
+  - "RAG"
+source_ids:
+  - "source-one"
+related_ids: []
+raw_paths: []
+created: 2026-05-14
+last_updated: 2026-05-14
+status: seed
+confidence: medium
+---
+
+# Retrieval-Augmented Generation
+
+## Definition
+
+Retrieval before generation.
+""",
+                encoding="utf-8",
+            )
+
+            pages = wiki_utils.load_wiki_pages(root)
+            by_id = {page.id: page for page in pages}
+            self.assertEqual(by_id["RAG"].title, "Retrieval-Augmented Generation")
+            self.assertEqual(by_id["RAG"].type, "concept")
+            self.assertEqual(by_id["RAG"].tags, ["retrieval"])
+            self.assertEqual(by_id["RAG"].aliases, ["RAG"])
+            self.assertEqual(by_id["RAG"].source_ids, ["source-one"])
+            self.assertIn("Retrieval before generation.", by_id["RAG"].body)
+            self.assertIn("Retrieval before generation.", by_id["RAG"].sections["Definition"])
+            self.assertEqual(wiki_utils.canonical_page_map(root)["RAG"].path.name, "RAG.md")
+
+    def test_canonical_page_map_rejects_duplicate_canonical_ids(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "wiki/concepts").mkdir(parents=True)
+            (root / "wiki/entities").mkdir(parents=True)
+            (root / "wiki/sources").mkdir(parents=True)
+            (root / "wiki/syntheses").mkdir(parents=True)
+            for name in ("First", "Second"):
+                (root / "wiki/concepts" / f"{name}.md").write_text(
+                    """---
+canonical_id: "Duplicate"
+type: concept
+title: "Duplicate"
+tags: []
+aliases: []
+source_ids: []
+related_ids: []
+raw_paths: []
+created: 2026-05-14
+last_updated: 2026-05-14
+status: seed
+confidence: medium
+---
+
+# Duplicate
+""",
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "duplicate canonical_id 'Duplicate'"):
+                wiki_utils.canonical_page_map(root)
+
+    def test_id_yaml_and_excerpt_helpers(self):
+        self.assertTrue(wiki_utils.is_kebab_id("rag-systems-architecture-survey"))
+        self.assertFalse(wiki_utils.is_kebab_id("RAGSystems"))
+        self.assertEqual(wiki_utils.yaml_list(["rag", "agents"]), ['  - "rag"', '  - "agents"'])
+        self.assertEqual(wiki_utils.yaml_list([r"path\to\file"]), [r'  - "path\\to\\file"'])
+        self.assertEqual(wiki_utils.yaml_list(['quote "here"']), [r'  - "quote \"here\""'])
+        self.assertEqual(wiki_utils.yaml_list(["line\nbreak"]), [r'  - "line\nbreak"'])
+        self.assertEqual(wiki_utils.yaml_list([]), ["[]"])
+        excerpt = wiki_utils.bounded_excerpt("alpha beta gamma delta", {"gamma"}, limit=16)
+        self.assertIn("gamma", excerpt)
+        self.assertLessEqual(len(excerpt), 19)
+
+    def test_yaml_list_values_round_trip_through_frontmatter_parser(self):
+        values = [r"path\to\file", 'quote "here"', "line\nbreak"]
+        text = "---\nvalues:\n" + "\n".join(wiki_utils.yaml_list(values)) + "\n---\n"
+
+        data = wiki_utils.parse_frontmatter(text)
+
+        self.assertEqual(data["values"], values)
+
 
 if __name__ == "__main__":
     unittest.main()

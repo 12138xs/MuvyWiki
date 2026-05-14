@@ -63,6 +63,8 @@ tools/
   health.py
   lint.py
   build_graph.py
+  query.py
+  save_synthesis.py
   convert.py
 
 graph/
@@ -129,7 +131,7 @@ Every log entry body must include:
 
 ### `tools/`
 
-`tools/` stores deterministic helper scripts. Interface v1 update: `health.py`, `lint.py`, `build_graph.py`, and local Markdown/text `convert.py` are implemented as lightweight standard-library tools. Future work can expand these interfaces without changing the repository contract.
+`tools/` stores deterministic helper scripts. Interface v1 update: `health.py`, `lint.py`, `build_graph.py`, local Markdown/text `convert.py`, `query.py`, and `save_synthesis.py` are implemented as lightweight standard-library tools. Future work can expand these interfaces without changing the repository contract.
 
 ### `graph/`
 
@@ -353,15 +355,43 @@ Triggered by requests such as `query: ...`, `我对 X 知道什么？`, or `比�
 
 Steps:
 
-1. Read `wiki/index.md`.
-2. Read the relevant wiki pages.
-3. Answer from wiki content first.
-4. Cite internal pages with `[[WikiLinks]]`.
-5. Clearly label any answer material that comes from model knowledge rather than wiki pages.
-6. Ask before expanding to web search or new external sources.
-7. If the answer has long-term value, ask whether to save it as a synthesis page.
+1. Use `python tools/query.py "<user query>" --json` for deterministic first-pass context when useful.
+2. Read `wiki/index.md` when manually navigating.
+3. Read the relevant wiki pages.
+4. Answer from wiki content first.
+5. Cite internal pages with `[[WikiLinks]]`.
+6. Clearly label any answer material that comes from model knowledge rather than wiki pages.
+7. Ask before expanding to web search or new external sources.
+8. If the answer has long-term value, ask whether to save it as a synthesis page.
 
 Plain queries do not modify files unless the user asks to save or archive the answer.
+
+Minimum CLI contract:
+
+```bash
+python tools/query.py "<user query>" [--json]
+```
+
+The query helper builds local context packets from wiki pages. It does not call an LLM, fetch remote sources, or modify files.
+
+### Save Synthesis
+
+Triggered after the user approves saving a high-value query answer.
+
+Steps:
+
+1. Confirm the user wants to save the synthesis.
+2. Prepare answer Markdown and evidence Markdown.
+3. Run `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md`.
+4. Run `python tools/health.py` and `python tools/lint.py`.
+
+The synthesis helper persists approved synthesis pages and updates `wiki/index.md` and `wiki/log.md`. It does not call an LLM, fetch remote sources, ingest raw sources, or append to `raw/source-manifest.jsonl` unless a separate raw or converted artifact is created by another workflow.
+
+Minimum CLI contract:
+
+```bash
+python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md
+```
 
 ### Health
 
@@ -520,6 +550,10 @@ Future verification should add:
 - Conversion fixture tests for future document types.
 - Richer lint report fixture tests.
 - Batch ingest tests.
+
+## Query & Synthesis v1 update
+
+As of 2026-05-14, `tools/query.py` and `tools/save_synthesis.py` are deterministic helpers. `tools/query.py` builds local context packets and `tools/save_synthesis.py` persists user-approved synthesis pages while updating index/log, without LLM calls, remote fetches, or raw-source ingestion.
 
 ## References
 

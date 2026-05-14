@@ -65,6 +65,9 @@ graph/              # 生成的图谱输出目录
 - `python tools/lint.py --json`：机器可读 lint 输出。
 - `python tools/lint.py --report graph/lint-report.md`：写入 Markdown lint 报告。
 - `python tools/build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+- `python tools/query.py "retrieval augmented generation"`：为 agent 查找本地 wiki 上下文，不生成回答。
+- `python tools/query.py "retrieval augmented generation" --json`：机器可读 query context 输出。
+- `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md`：保存用户确认过的 synthesis 页面，并更新 index/log。
 - `python tools/convert.py <input> --out raw/converted/<file>`：本地 Markdown/text 转换入口；不会自动更新 manifest 或 wiki 页面。
 - `python -m unittest discover -s tests`：项目测试套件。
 - `AGENTS.md` 里的 agent-first ingest/query 协议。
@@ -227,6 +230,25 @@ GPT5.md
 
 查询时，Codex 应该先读 `wiki/index.md`，再读相关页面，然后基于知识库回答。若使用了模型自身知识而不是 wiki 内容，应该明确标注。
 
+`python tools/query.py "retrieval augmented generation"` 可以作为确定性的第一轮上下文查找。它会从本地 wiki 找到可能相关的页面、链接和匹配分数，但不会调用 LLM，也不会替你生成最终答案。需要章节摘录时可以加 `--include-sections`。Agent 仍然需要阅读匹配到的 wiki 页面，优先基于 wiki 内容回答，并用 `[[WikiLinks]]` 标注来源。
+
+需要机器可读结果时可以运行：
+
+```bash
+python tools/query.py "retrieval augmented generation" --json
+```
+
+## 如何保存综合回答
+
+普通查询不会自动写入知识库。只有当你确认这次回答值得长期保存时，agent 才应该保存 synthesis 页面。
+
+保存流程：
+
+1. Agent 先向你确认是否保存。
+2. Agent 准备 answer Markdown 和 evidence Markdown。
+3. Agent 使用 `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` 写入 synthesis 页面，并更新 `wiki/index.md` 和 `wiki/log.md`。
+4. Agent 运行 `python tools/health.py` 和 `python tools/lint.py`，修复结构问题后再报告完成。
+
 ## 日志和索引
 
 `wiki/index.md` 必须包含每个 wiki 页面，格式类似：
@@ -285,12 +307,17 @@ python tools/lint.py
 python tools/lint.py --json
 python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
+python tools/query.py "retrieval augmented generation"
+python tools/query.py "retrieval augmented generation" --json
+python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md
 python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
 `lint.py` 会检查空的必填章节、source 缺少 claims/evidence、concept 缺少 supporting sources、entity 缺少 evidence、孤立页面，以及 index 里仍保留的 `No ... yet.` 过期摘要。
 
 `build_graph.py` 会从 wiki frontmatter、wikilinks、`source_ids`、`related_ids`、raw paths 和 provenance 生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+
+`query.py` 会查找本地 wiki 上下文包，但不生成回答、不联网、不摄取新 raw source。`save_synthesis.py` 会保存已经由用户确认的 synthesis 页面并维护 index/log，但不会调用 LLM，也不会把回答当作新来源写入 raw manifest。
 
 `convert.py` 支持本地 Markdown/text 输入，输出必须是 `raw/converted/` 下的新文件。它不会自动更新 `raw/source-manifest.jsonl`，也不会自动创建 source 页面。
 

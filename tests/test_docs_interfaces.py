@@ -68,6 +68,20 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertNotIn("must use exit code `3`", design)
         self.assertNotIn("remain reserved interfaces", ingest)
 
+    def test_query_and_synthesis_interfaces_are_documented(self):
+        readme = self.read("README.md")
+        guide = self.read("USER_GUIDE.md")
+        agents = self.read("AGENTS.md")
+        graph = self.read("graph/README.md")
+        design = self.read("docs/superpowers/specs/2026-05-12-muvywiki-design.md")
+        for text in (readme, guide, agents):
+            self.assertIn("python tools/query.py", text)
+            self.assertIn("python tools/save_synthesis.py", text)
+        self.assertIn("wiki/syntheses/", graph)
+        self.assertIn("synthesis` nodes", graph)
+        self.assertIn("graph outputs", graph)
+        self.assertIn("## Query & Synthesis v1 update", design)
+
     def test_historical_plans_are_labeled(self):
         initial = self.read("docs/superpowers/plans/2026-05-12-muvywiki-implementation.md")
         ingest = self.read("docs/superpowers/plans/2026-05-13-ingest-v2.md")
