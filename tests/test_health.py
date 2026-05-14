@@ -70,6 +70,8 @@ class HealthToolTests(unittest.TestCase):
             "tools/lint.py",
             "tools/build_graph.py",
             "tools/convert.py",
+            "tools/query.py",
+            "tools/save_synthesis.py",
             "graph/README.md",
         ):
             (root / rel).write_text("placeholder\n", encoding="utf-8")
@@ -379,7 +381,19 @@ confidence: medium
         self.assertEqual(result.returncode, 1)
         self.assertIn("frontmatter title must be a non-empty scalar", result.stdout)
         self.assertIn("frontmatter tags must be a YAML list", result.stdout)
-        self.assertIn("frontmatter status must be one of: active, archived, seed", result.stdout)
+        self.assertIn("frontmatter status must be one of: active, archived, needs-review, seed", result.stdout)
+
+    def test_needs_review_status_is_allowed(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            text = (temp / "wiki/overview.md").read_text(encoding="utf-8")
+            (temp / "wiki/overview.md").write_text(
+                text.replace("status: seed", "status: needs-review"),
+                encoding="utf-8",
+            )
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

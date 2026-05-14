@@ -38,6 +38,8 @@ REQUIRED_PATHS = [
     "tools/lint.py",
     "tools/build_graph.py",
     "tools/convert.py",
+    "tools/query.py",
+    "tools/save_synthesis.py",
     "graph/README.md",
 ]
 
@@ -72,7 +74,7 @@ REQUIRED_SCALAR_FRONTMATTER = {
 }
 REQUIRED_LIST_FRONTMATTER = {"tags", "aliases", "source_ids", "related_ids", "raw_paths"}
 ALLOWED_TYPES = {"source", "concept", "entity", "synthesis", "overview"}
-ALLOWED_STATUSES = {"seed", "active", "archived"}
+ALLOWED_STATUSES = {"seed", "active", "archived", "needs-review"}
 ALLOWED_CONFIDENCES = {"low", "medium", "high"}
 INDEX_SECTIONS_BY_TYPE = {
     "overview": "Overview",
