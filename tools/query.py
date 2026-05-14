@@ -22,10 +22,17 @@ def tokenize(text: str) -> list[str]:
     return [token.lower() for token in TOKEN_RE.findall(text)]
 
 
+def matchable_tokens(text: str) -> set[str]:
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
+    return set(tokenize(text)) | set(tokenize(spaced))
+
+
 def parse_types(value: str | None) -> set[str] | None:
     if not value:
         return None
     selected = {item.strip() for item in value.split(",") if item.strip()}
+    if not selected:
+        raise ValueError("--type must include at least one page type")
     unknown = selected - ALLOWED_TYPES
     if unknown:
         raise ValueError("unsupported page type: " + ", ".join(sorted(unknown)))
@@ -39,9 +46,11 @@ def add_term_scores(
     score: int,
     matched_terms: set[str],
 ) -> int:
-    haystack = " ".join(text_values).lower()
+    haystack_tokens: set[str] = set()
+    for value in text_values:
+        haystack_tokens.update(matchable_tokens(value))
     for term in terms:
-        if term in haystack:
+        if term in haystack_tokens:
             score += weight
             matched_terms.add(term)
     return score
@@ -57,7 +66,7 @@ def add_metadata_scores(
     exact_values = {value.lower() for value in text_values}
     value_tokens: set[str] = set()
     for value in text_values:
-        value_tokens.update(tokenize(value))
+        value_tokens.update(matchable_tokens(value))
     for term in terms:
         if term in exact_values or term in value_tokens:
             score += weight
@@ -79,8 +88,8 @@ def score_page(page: wiki_utils.WikiPage, terms: set[str]) -> tuple[int, set[str
 def section_matches(page: wiki_utils.WikiPage, terms: set[str]) -> list[dict[str, str]]:
     matches: list[dict[str, str]] = []
     for title, body in page.sections.items():
-        combined = f"{title}\n{body}".lower()
-        if not any(term in combined for term in terms):
+        combined_tokens = matchable_tokens(f"{title}\n{body}")
+        if not any(term in combined_tokens for term in terms):
             continue
         matches.append(
             {

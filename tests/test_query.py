@@ -163,8 +163,7 @@ confidence: medium
             payload = json.loads(result.stdout)
             self.assertGreaterEqual(len(payload["matches"]), 1)
             self.assertEqual(payload["matches"][0]["id"], "RetrievalAugmentedGeneration")
-            bragging = next(match for match in payload["matches"] if match["id"] == "Bragging")
-            self.assertLess(bragging["score"], 6)
+            self.assertNotIn("Bragging", [match["id"] for match in payload["matches"]])
 
     def test_no_matches_is_success(self):
         temp_dir, root = self.make_repo()
@@ -183,6 +182,8 @@ confidence: medium
             self.assertEqual(bad_limit.returncode, 2)
             bad_type = self.run_query(root, "rag", "--type", "paper")
             self.assertEqual(bad_type.returncode, 2)
+            empty_type = self.run_query(root, "rag", "--type", ",")
+            self.assertEqual(empty_type.returncode, 2)
 
 
 if __name__ == "__main__":
