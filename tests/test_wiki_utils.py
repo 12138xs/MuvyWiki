@@ -179,6 +179,7 @@ Retrieval before generation.
             self.assertEqual(by_id["RAG"].aliases, ["RAG"])
             self.assertEqual(by_id["RAG"].source_ids, ["source-one"])
             self.assertIn("Retrieval before generation.", by_id["RAG"].body)
+            self.assertIn("Retrieval before generation.", by_id["RAG"].sections["Definition"])
             self.assertEqual(wiki_utils.canonical_page_map(root)["RAG"].path.name, "RAG.md")
 
     def test_id_yaml_and_excerpt_helpers(self):
