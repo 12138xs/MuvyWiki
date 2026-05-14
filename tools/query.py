@@ -47,10 +47,28 @@ def add_term_scores(
     return score
 
 
+def add_metadata_scores(
+    terms: set[str],
+    text_values: list[str],
+    weight: int,
+    score: int,
+    matched_terms: set[str],
+) -> int:
+    exact_values = {value.lower() for value in text_values}
+    value_tokens: set[str] = set()
+    for value in text_values:
+        value_tokens.update(tokenize(value))
+    for term in terms:
+        if term in exact_values or term in value_tokens:
+            score += weight
+            matched_terms.add(term)
+    return score
+
+
 def score_page(page: wiki_utils.WikiPage, terms: set[str]) -> tuple[int, set[str]]:
     score = 0
     matched_terms: set[str] = set()
-    score = add_term_scores(terms, [page.id, page.title, *page.aliases, *page.tags], 6, score, matched_terms)
+    score = add_metadata_scores(terms, [page.id, page.title, *page.aliases, *page.tags], 6, score, matched_terms)
     score = add_term_scores(terms, [*page.source_ids, *page.related_ids, *wiki_utils.extract_wikilinks(page.body)], 4, score, matched_terms)
     score = add_term_scores(terms, list(page.sections), 3, score, matched_terms)
     score = add_term_scores(terms, [page.body], 1, score, matched_terms)
@@ -131,9 +149,15 @@ def text_output(payload: dict[str, object]) -> str:
                 f"   type: {item['type']}",
                 f"   score: {item['score']}",
                 "   matched: " + ", ".join(str(term) for term in item["matched_terms"]),
-                "",
             ]
         )
+        sections = item.get("sections")
+        if isinstance(sections, list) and sections:
+            lines.append("   sections:")
+            for section in sections:
+                assert isinstance(section, dict)
+                lines.append(f"   - {section['title']}: {section['excerpt']}")
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 

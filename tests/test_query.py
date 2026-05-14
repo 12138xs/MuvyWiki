@@ -57,6 +57,15 @@ class QueryToolTests(unittest.TestCase):
             [],
             "## Summary\n\nOrganization page.\n",
         )
+        self.write_page(
+            root / "wiki/concepts/Bragging.md",
+            "Bragging",
+            "concept",
+            "Bragging",
+            ["bragging"],
+            [],
+            "## Definition\n\nConfidence claims without grounding.\n",
+        )
         return temp_dir, root
 
     def write_page(self, path, cid, page_type, title, tags, aliases, body, source_ids=None, related_ids=None):
@@ -136,6 +145,26 @@ confidence: medium
             self.assertTrue(sections)
             self.assertIn("excerpt", sections[0])
             self.assertLessEqual(len(sections[0]["excerpt"]), 260)
+
+    def test_text_include_sections_prints_section_excerpts(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            result = self.run_query(root, "source context", "--include-sections")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("sections:", result.stdout)
+            self.assertIn("Definition:", result.stdout)
+            self.assertIn("retrieves source context", result.stdout)
+
+    def test_metadata_substrings_do_not_receive_exact_match_score(self):
+        temp_dir, root = self.make_repo()
+        with temp_dir:
+            result = self.run_query(root, "rag", "--json")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertGreaterEqual(len(payload["matches"]), 1)
+            self.assertEqual(payload["matches"][0]["id"], "RetrievalAugmentedGeneration")
+            bragging = next(match for match in payload["matches"] if match["id"] == "Bragging")
+            self.assertLess(bragging["score"], 6)
 
     def test_no_matches_is_success(self):
         temp_dir, root = self.make_repo()
