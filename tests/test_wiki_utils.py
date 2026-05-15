@@ -112,6 +112,26 @@ published_at: null
             "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         )
 
+    def test_source_slug_remote_hash_and_date_helpers(self):
+        self.assertEqual(wiki_utils.slugify_source_id("Karpathy LLM Wiki.md"), "karpathy-llm-wiki")
+        self.assertEqual(wiki_utils.slugify_source_id("!!!", fallback_hash="sha256:" + "a" * 64), "source-aaaaaaaa")
+        self.assertTrue(wiki_utils.is_remote_url("https://example.com/post"))
+        self.assertTrue(wiki_utils.is_remote_url("file://not-supported"))
+        self.assertFalse(wiki_utils.is_remote_url("raw/originals/post.md"))
+        self.assertTrue(wiki_utils.is_sha256_hash("sha256:" + "a" * 64))
+        self.assertFalse(wiki_utils.is_sha256_hash("sha1:" + "a" * 40))
+        self.assertTrue(wiki_utils.is_iso_date("2026-05-15"))
+        self.assertFalse(wiki_utils.is_iso_date("2026-5-15"))
+
+    def test_supported_text_and_binary_detection(self):
+        self.assertTrue(wiki_utils.is_supported_text_suffix(Path("note.md")))
+        self.assertTrue(wiki_utils.is_supported_text_suffix(Path("note.markdown")))
+        self.assertTrue(wiki_utils.is_supported_text_suffix(Path("note.txt")))
+        self.assertTrue(wiki_utils.is_supported_text_suffix(Path("README")))
+        self.assertFalse(wiki_utils.is_supported_text_suffix(Path("paper.pdf")))
+        self.assertFalse(wiki_utils.is_binary_like_text("hello\n"))
+        self.assertTrue(wiki_utils.is_binary_like_text("hello\x00\n"))
+
     def test_page_helpers_load_metadata_and_body(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

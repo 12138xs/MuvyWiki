@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,10 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 SECTION_RE = re.compile(r"^## (?P<title>.+?)\s*$", re.MULTILINE)
 NONE_MARKERS = {"none", "- none", "no supporting sources yet.", "no synthesis pages yet."}
 KEBAB_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+REMOTE_URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+SUPPORTED_TEXT_SUFFIXES = {"", ".md", ".markdown", ".txt"}
 
 
 def utc_now() -> str:
@@ -38,6 +43,46 @@ def sha256_bytes(data: bytes) -> str:
 
 def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
+
+
+def is_remote_url(value: str) -> bool:
+    return bool(REMOTE_URL_RE.match(value))
+
+
+def is_sha256_hash(value: object) -> bool:
+    return isinstance(value, str) and bool(SHA256_RE.fullmatch(value))
+
+
+def is_iso_date(value: object) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, str) or not ISO_DATE_RE.fullmatch(value):
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
+
+
+def is_supported_text_suffix(path: Path) -> bool:
+    return path.suffix.lower() in SUPPORTED_TEXT_SUFFIXES
+
+
+def is_binary_like_text(text: str) -> bool:
+    allowed_controls = {"\t", "\n", "\f", "\r"}
+    return any(unicodedata.category(char) == "Cc" and char not in allowed_controls for char in text)
+
+
+def slugify_source_id(value: str, fallback_hash: str | None = None) -> str:
+    stem = re.sub(r"\.[^.]+$", "", Path(value).name)
+    ascii_text = unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    if slug:
+        return slug
+    if is_sha256_hash(fallback_hash):
+        return f"source-{fallback_hash.removeprefix('sha256:')[:8]}"
+    return "source-unknown"
 
 
 def _normalized_relative_parts(path: Path) -> tuple[str, ...]:

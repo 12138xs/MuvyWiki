@@ -16,6 +16,13 @@ Implemented deterministic interfaces:
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
 - `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/lint-report.md`.
 - `python tools/build_graph.py` writes local graph artifacts under `graph/`.
+- `python tools/prepare_ingest.py <input> --json` performs read-only ingest preflight for supported local Markdown/text inputs.
+- `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md` writes an optional ingest preflight report under `graph/`.
+- `python tools/manifest.py check` validates `raw/source-manifest.jsonl`.
+- `python tools/manifest.py find --source-id <source-id>` looks up an existing manifest entry by source ID.
+- `python tools/manifest.py find --hash <sha256:...>` looks up an existing manifest entry by content hash.
+- `python tools/manifest.py find --path <raw-or-converted-path>` looks up an existing manifest entry by raw, converted, or converted-from path.
+- `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>` appends one validated manifest entry.
 - `python tools/query.py "retrieval augmented generation"` builds a local context packet for an agent answer.
 - `python tools/query.py "retrieval augmented generation" --json` emits the local context packet as JSON.
 - `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` persists a user-approved synthesis page and updates index/log.
@@ -23,6 +30,8 @@ Implemented deterministic interfaces:
 - `python -m unittest discover -s tests` runs the repository test suite.
 
 Conversion does not equal ingest. After using `convert.py`, agents must still perform the ingest workflow before claiming a source has entered MuvyWiki.
+
+Ingest preparation does not equal ingest. `prepare_ingest.py` does not call an LLM or create wiki pages. `manifest.py` only maintains `raw/source-manifest.jsonl`; it does not update source pages, index, or log.
 
 `query.py` and `save_synthesis.py` are agent-facing helpers. They do not call an LLM, fetch remote content, or ingest new raw sources.
 
@@ -69,20 +78,22 @@ Remote URLs are recognized as ingest intent only. Ingest v2 does not fetch, craw
 
 1. Identify whether the input is Markdown, plain text, pasted text, already converted Markdown, remote URL, or unsupported.
 2. If the input is a remote URL, stop and ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
-3. Choose a source template:
+3. For a local Markdown/text input, first run `python tools/prepare_ingest.py <input> --json`.
+4. If `prepare_ingest.py` reports unsupported, duplicate, missing, unsafe, or ambiguous input, stop and report `Ingest blocked.` with the tool's reason and a concrete next step.
+5. Choose a source template:
    - technical paper: `templates/sources/technical-paper.md`
    - technical article: `templates/sources/technical-article.md`
    - project README: `templates/sources/project-readme.md`
    - meeting notes: `templates/sources/meeting-notes.md`
    - journal entry: `templates/sources/journal-entry.md`
    - fallback: `templates/source.md`
-4. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
-5. Choose a canonical source ID in kebab-case.
-6. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction.
-7. Check whether the raw artifact already exists.
-8. Compute the artifact hash from the local raw artifact.
-9. Check `raw/source-manifest.jsonl` for duplicate `content_hash` or `source_id`.
-10. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
+6. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
+7. Choose or confirm a canonical source ID in kebab-case.
+8. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction, then run `python tools/prepare_ingest.py raw/originals/<source-id>.md --json`.
+9. Confirm the final raw path, source ID, and content hash from the preflight result.
+10. Run `python tools/manifest.py check` and `python tools/manifest.py find --source-id <source-id>`, `python tools/manifest.py find --hash <sha256:...>`, or `python tools/manifest.py find --path <raw-or-converted-path>` before adding a new entry.
+11. After the final raw path/source ID/hash are fixed, use `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>` to record the manifest entry.
+12. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
 
 ### Page Updates
 

@@ -39,11 +39,17 @@ Those out-of-scope items are planned as later subprojects: Graph v2, Convert v2,
 Use an agent-first ingest protocol with deterministic validation:
 
 - The agent performs semantic extraction, summarization, concept selection, entity selection, contradiction handling, and synthesis suggestions.
+- `tools/prepare_ingest.py` performs read-only local Markdown/text preflight before wiki edits.
+- `tools/manifest.py` validates, searches, and appends finalized `raw/source-manifest.jsonl` entries.
 - `tools/health.py` verifies structure, provenance, index/log parseability, canonical IDs, links, and manifest consistency.
 - Domain templates give the agent repeatable shapes without forcing all sources into the same page.
 - Examples act as executable documentation: future agents can inspect known-good ingest output before doing new work.
 
 This is closer to SamurAIGPT's workflow richness than MuvyWiki v1, but it stays more conservative: MuvyWiki will not infer hidden graph edges or automatically mutate semantic claims without visible page edits.
+
+## Ingest Prep v1 update
+
+Status note, 2026-05-15: `tools/prepare_ingest.py` and `tools/manifest.py` are implemented helpers for the deterministic parts of this design. They do not replace agent-first ingest. `prepare_ingest.py` checks supported local inputs, reports duplicates, recommends IDs/templates, and may write `graph/ingest-prep-report.md`; `manifest.py` supports `check`, `find`, and `add` for `raw/source-manifest.jsonl`. Neither tool calls an LLM, creates wiki pages, or updates index/log.
 
 ## New Files
 
@@ -187,12 +193,13 @@ Privacy guidance:
 Before editing files, the agent must:
 
 1. Identify the input type and choose a source template.
-2. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages.
-3. Check whether the raw artifact already exists.
-4. Compute or report the source hash if the content is available as a local file.
-5. Check `raw/source-manifest.jsonl` for duplicate `content_hash` or `source_id`.
-6. Choose a canonical source ID.
-7. Report if the ingest would be a duplicate, ambiguous, or unsupported.
+2. For supported local Markdown/text input, run `python tools/prepare_ingest.py <input> --json`.
+3. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages.
+4. Check whether the raw artifact already exists.
+5. Compute or report the source hash if the content is available as a local file.
+6. Check `raw/source-manifest.jsonl` for duplicate `content_hash` or `source_id`, using `python tools/manifest.py check`, `python tools/manifest.py find --source-id <source-id>`, and `python tools/manifest.py find --hash <sha256:...>` when useful.
+7. Choose a canonical source ID.
+8. Report if the ingest would be a duplicate, ambiguous, or unsupported.
 
 If the source is a paste, the agent should save it to `raw/originals/<source-id>.md` before creating wiki pages.
 
@@ -239,6 +246,8 @@ Every ingest must update:
 - `raw/source-manifest.jsonl`
 - `wiki/index.md`
 - `wiki/log.md`
+
+After the final raw path, source ID, and content hash are confirmed, the agent should use `python tools/manifest.py add ...` for the manifest update.
 
 Update `wiki/overview.md` only if the source changes the knowledge base's broader map, active themes, open questions, or strongest syntheses.
 
@@ -328,7 +337,7 @@ Ingest v2 must not break v1:
 
 - Existing health checks must keep passing.
 - Existing generic templates remain valid.
-- Interface v1 update: `tools/lint.py`, `tools/build_graph.py`, and local Markdown/text `tools/convert.py` are implemented lightweight interfaces.
+- Interface v1 update: `tools/lint.py`, `tools/build_graph.py`, local Markdown/text `tools/convert.py`, `tools/prepare_ingest.py`, and `tools/manifest.py` are implemented lightweight interfaces.
 - No graph, lint, or conversion behavior is required to complete ingest v2, but agents may use implemented tools as extra validation or pre-ingest preparation.
 
 ## Future Hooks

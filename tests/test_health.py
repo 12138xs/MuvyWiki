@@ -41,6 +41,16 @@ class HealthToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("missing required path", result.stdout)
 
+    def test_documented_ingest_prep_helpers_are_required(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            self.write_minimal_repo(temp)
+            (temp / "README.md").write_text("python tools/prepare_ingest.py\npython tools/manifest.py\n", encoding="utf-8")
+            (temp / "tools/prepare_ingest.py").unlink()
+            result = self.run_health(cwd=temp)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("tools/prepare_ingest.py: missing required path", result.stdout)
+
     def write_minimal_repo(self, root):
         for rel in (
             "raw/originals",
@@ -70,6 +80,8 @@ class HealthToolTests(unittest.TestCase):
             "tools/lint.py",
             "tools/build_graph.py",
             "tools/convert.py",
+            "tools/manifest.py",
+            "tools/prepare_ingest.py",
             "tools/query.py",
             "tools/save_synthesis.py",
             "graph/README.md",

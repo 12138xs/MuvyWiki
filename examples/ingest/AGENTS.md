@@ -44,14 +44,16 @@ Remote URLs are recognized as ingest intent only. Ingest v2 does not fetch, craw
 
 1. Identify whether the input is Markdown, plain text, pasted text, already converted Markdown, remote URL, or unsupported.
 2. If the input is a remote URL, stop and ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
-3. Use the fixture source template at `templates/source.md`. The full project root has additional domain-specific source templates.
-4. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
-5. Choose a canonical source ID in kebab-case.
-6. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction.
-7. Check whether the raw artifact already exists.
-8. Compute the artifact hash from the local raw artifact.
-9. Check `raw/source-manifest.jsonl` for duplicate `content_hash` or `source_id`.
-10. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
+3. For local Markdown/text input, run `python tools/prepare_ingest.py <input> --json`.
+4. Use the fixture source template at `templates/source.md`. The full project root has additional domain-specific source templates.
+5. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
+6. Choose a canonical source ID in kebab-case.
+7. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction, then run `python tools/prepare_ingest.py raw/originals/<source-id>.md --json`.
+8. Check whether the raw artifact already exists.
+9. Compute the artifact hash from the local raw artifact.
+10. Run `python tools/manifest.py check` and `python tools/manifest.py find --source-id <source-id>`, `python tools/manifest.py find --hash <sha256:...>`, or `python tools/manifest.py find --path <raw-or-converted-path>` before adding a new manifest entry.
+11. After the final raw path/source ID/hash are fixed, use `python tools/manifest.py add ...` to update `raw/source-manifest.jsonl`.
+12. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
 
 ### Page Updates
 
@@ -131,6 +133,15 @@ Run `python tools/lint.py` after documentation or wiki content changes that may 
 
 - `python tools/lint.py` checks semantic-lite maintenance issues in the fixture.
 - `python tools/build_graph.py` writes fixture graph artifacts under `graph/`.
+- `python tools/prepare_ingest.py <input> --json` performs local Markdown/text preflight without creating wiki pages.
+- `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md` may write a preflight report under `graph/`.
+- `python tools/manifest.py check` validates `raw/source-manifest.jsonl`.
+- `python tools/manifest.py find --source-id <source-id>` looks up manifest entries by source ID.
+- `python tools/manifest.py find --hash <sha256:...>` looks up manifest entries by content hash.
+- `python tools/manifest.py find --path <raw-or-converted-path>` looks up manifest entries by raw, converted, or converted-from path.
+- `python tools/manifest.py add ...` appends one finalized manifest entry.
 - `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 
 Conversion does not equal ingest. After using `convert.py`, agents must still update `raw/source-manifest.jsonl`, wiki pages, index, and log before claiming a source has entered the fixture.
+
+Ingest preparation does not equal ingest. `prepare_ingest.py` does not call an LLM, and `manifest.py` only maintains `raw/source-manifest.jsonl`; neither helper creates source pages or updates index/log.

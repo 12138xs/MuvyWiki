@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import unicodedata
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +17,11 @@ FRONTMATTER_RE = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 SECTION_RE = re.compile(r"^## (?P<title>.+?)\s*$", re.MULTILINE)
 NONE_MARKERS = {"none", "- none", "no supporting sources yet.", "no synthesis pages yet."}
+KEBAB_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+REMOTE_URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+SUPPORTED_TEXT_SUFFIXES = {"", ".md", ".markdown", ".txt"}
 
 
 def utc_now() -> str:
@@ -35,6 +43,46 @@ def sha256_bytes(data: bytes) -> str:
 
 def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
+
+
+def is_remote_url(value: str) -> bool:
+    return bool(REMOTE_URL_RE.match(value))
+
+
+def is_sha256_hash(value: object) -> bool:
+    return isinstance(value, str) and bool(SHA256_RE.fullmatch(value))
+
+
+def is_iso_date(value: object) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, str) or not ISO_DATE_RE.fullmatch(value):
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
+
+
+def is_supported_text_suffix(path: Path) -> bool:
+    return path.suffix.lower() in SUPPORTED_TEXT_SUFFIXES
+
+
+def is_binary_like_text(text: str) -> bool:
+    allowed_controls = {"\t", "\n", "\f", "\r"}
+    return any(unicodedata.category(char) == "Cc" and char not in allowed_controls for char in text)
+
+
+def slugify_source_id(value: str, fallback_hash: str | None = None) -> str:
+    stem = re.sub(r"\.[^.]+$", "", Path(value).name)
+    ascii_text = unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    if slug:
+        return slug
+    if is_sha256_hash(fallback_hash):
+        return f"source-{fallback_hash.removeprefix('sha256:')[:8]}"
+    return "source-unknown"
 
 
 def _normalized_relative_parts(path: Path) -> tuple[str, ...]:
@@ -110,7 +158,9 @@ def parse_scalar(value: str) -> Any:
         if not inner:
             return []
         return [parse_scalar(item.strip()) for item in inner.split(",")]
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
         return value[1:-1]
     return value
 
@@ -177,6 +227,116 @@ def has_useful_text(text: str) -> bool:
         return False
     lowered = "\n".join(stripped_lines).lower()
     return lowered not in NONE_MARKERS
+
+
+@dataclass(frozen=True)
+class WikiPage:
+    path: Path
+    rel_path: str
+    id: str
+    type: str
+    title: str
+    tags: list[str]
+    aliases: list[str]
+    source_ids: list[str]
+    related_ids: list[str]
+    raw_paths: list[str]
+    text: str
+    body: str
+    sections: dict[str, str]
+    frontmatter: dict[str, Any]
+
+
+def as_list(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if item not in (None, "")]
+    if value in (None, ""):
+        return []
+    return [str(value)]
+
+
+def page_id(frontmatter: dict[str, object], path: Path) -> str:
+    canonical_id = frontmatter.get("canonical_id")
+    return str(canonical_id) if canonical_id else path.stem
+
+
+def page_title(frontmatter: dict[str, object], text: str, fallback: str) -> str:
+    title = frontmatter.get("title")
+    if title:
+        return str(title)
+    for line in content_after_frontmatter(text).splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return fallback
+
+
+def load_wiki_pages(root: Path) -> list[WikiPage]:
+    pages: list[WikiPage] = []
+    for path in collect_wiki_pages(root):
+        text = read_text(path)
+        frontmatter = parse_frontmatter(text)
+        body = content_after_frontmatter(text)
+        page_identifier = page_id(frontmatter, path)
+        pages.append(
+            WikiPage(
+                path=path,
+                rel_path=repo_relative(root, path),
+                id=page_identifier,
+                type=str(frontmatter.get("type") or ""),
+                title=page_title(frontmatter, text, page_identifier),
+                tags=as_list(frontmatter.get("tags")),
+                aliases=as_list(frontmatter.get("aliases")),
+                source_ids=as_list(frontmatter.get("source_ids")),
+                related_ids=as_list(frontmatter.get("related_ids")),
+                raw_paths=as_list(frontmatter.get("raw_paths")),
+                text=text,
+                body=body,
+                sections=section_bodies(body),
+                frontmatter=frontmatter,
+            )
+        )
+    return pages
+
+
+def canonical_page_map(root: Path) -> dict[str, WikiPage]:
+    pages: dict[str, WikiPage] = {}
+    for page in load_wiki_pages(root):
+        existing = pages.get(page.id)
+        if existing is not None:
+            raise ValueError(
+                f"duplicate canonical_id {page.id!r}: {existing.rel_path} and {page.rel_path}"
+            )
+        pages[page.id] = page
+    return pages
+
+
+def is_kebab_id(value: str) -> bool:
+    return bool(KEBAB_ID_RE.fullmatch(value))
+
+
+def yaml_list(values: list[str]) -> list[str]:
+    if not values:
+        return ["[]"]
+    return [f"  - {json.dumps(value)}" for value in values]
+
+
+def bounded_excerpt(text: str, terms: set[str], limit: int = 240) -> str:
+    normalized = " ".join(text.split())
+    if not normalized:
+        return ""
+    lowered = normalized.lower()
+    starts = [lowered.find(term.lower()) for term in terms if term and lowered.find(term.lower()) >= 0]
+    if starts:
+        center = min(starts)
+        start = max(0, center - limit // 3)
+    else:
+        start = 0
+    excerpt = normalized[start : start + limit].strip()
+    if start > 0:
+        excerpt = "..." + excerpt
+    if start + limit < len(normalized):
+        excerpt = excerpt.rstrip() + "..."
+    return excerpt
 
 
 def collect_wiki_pages(root: Path) -> list[Path]:

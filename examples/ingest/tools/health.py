@@ -38,6 +38,8 @@ REQUIRED_PATHS = [
     "tools/lint.py",
     "tools/build_graph.py",
     "tools/convert.py",
+    "tools/manifest.py",
+    "tools/prepare_ingest.py",
     "graph/README.md",
 ]
 

@@ -63,6 +63,8 @@ tools/
   health.py
   lint.py
   build_graph.py
+  manifest.py
+  prepare_ingest.py
   query.py
   save_synthesis.py
   convert.py
@@ -86,7 +88,7 @@ README.md
 
 ### `raw/`
 
-`raw/` contains immutable source material. The agent may add files here when ingesting a URL, pasted text, or converted document, but it must not modify an existing raw artifact in place. If a source needs cleanup or conversion, the original stays in `raw/originals/`, the derived Markdown or text artifact goes in `raw/converted/`, and the transformation is recorded in `raw/source-manifest.jsonl` and the corresponding source page.
+`raw/` contains immutable source material. The agent may add files here when saving pasted text, local Markdown/text inputs, or converted artifacts for ingest, but it must not modify an existing raw artifact in place. If a source needs cleanup or conversion, the original stays in `raw/originals/`, the derived Markdown or text artifact goes in `raw/converted/`, and the transformation is recorded in `raw/source-manifest.jsonl` and the corresponding source page.
 
 Recommended first-level folders can emerge naturally, for example `raw/articles/`, `raw/papers/`, `raw/books/`, `raw/projects/`, and `raw/notes/`. The first version does not enforce these folders.
 
@@ -95,7 +97,7 @@ If topical folders are added later, they should sit under `raw/originals/` or `r
 `raw/source-manifest.jsonl` is append-only. Each line records one raw or converted artifact:
 
 ```json
-{"source_id":"attention-is-all-you-need","raw_path":"raw/originals/attention-is-all-you-need.pdf","content_hash":"sha256:...","source_url":"https://arxiv.org/abs/1706.03762","collected_at":"YYYY-MM-DD","published_at":"YYYY-MM-DD","converted_from":null,"converter":null}
+{"source_id":"attention-is-all-you-need","raw_path":"raw/originals/attention-is-all-you-need.pdf","content_hash":"sha256:...","source_url":"https://arxiv.org/abs/1706.03762","collected_at":"YYYY-MM-DD","published_at":"YYYY-MM-DD","converted_from":null,"converted_path":null,"converter":null,"converter_version":null}
 ```
 
 The manifest supports future batch ingest and duplicate detection. A new ingest must compare the candidate artifact hash against the manifest before creating a duplicate source page.
@@ -131,7 +133,7 @@ Every log entry body must include:
 
 ### `tools/`
 
-`tools/` stores deterministic helper scripts. Interface v1 update: `health.py`, `lint.py`, `build_graph.py`, local Markdown/text `convert.py`, `query.py`, and `save_synthesis.py` are implemented as lightweight standard-library tools. Future work can expand these interfaces without changing the repository contract.
+`tools/` stores deterministic helper scripts. Interface v1 update: `health.py`, `lint.py`, `build_graph.py`, local Markdown/text `convert.py`, `query.py`, `save_synthesis.py`, `manifest.py`, and `prepare_ingest.py` are implemented as lightweight standard-library tools. Future work can expand these interfaces without changing the repository contract.
 
 ### `graph/`
 
@@ -333,19 +335,20 @@ Triggered by requests such as `ingest raw/...`, `ingest this article`, or `ÊëÑÂè
 Steps:
 
 1. Read the source fully.
-2. Compute the candidate artifact hash and check `raw/source-manifest.jsonl` for duplicates.
-3. If the source is not already in `raw/`, save it as a new artifact under `raw/originals/` without modifying existing artifacts.
-4. Read `wiki/index.md` and `wiki/overview.md`.
-5. Create or update one `wiki/sources/<slug>.md` page.
-6. Extract durable concepts and update or create `wiki/concepts/` pages.
-7. Extract durable entities and update or create `wiki/entities/` pages.
-8. Flag contradictions, tensions, and changed claims on affected pages.
-9. Update `wiki/index.md`.
-10. Update `wiki/overview.md` if the source changes the broader picture.
-11. Append an entry to `wiki/log.md`.
-12. Update `raw/source-manifest.jsonl` with the source identity and content hash.
-13. Run `python tools/health.py`.
-14. Report changed pages and any unresolved issues.
+2. Run `python tools/prepare_ingest.py <input> --json` for supported local Markdown/text inputs.
+3. Compute the candidate artifact hash and check `raw/source-manifest.jsonl` for duplicates.
+4. If the source is not already in `raw/`, save it as a new artifact under `raw/originals/` without modifying existing artifacts.
+5. Read `wiki/index.md` and `wiki/overview.md`.
+6. After the final raw path, source ID, and hash are fixed, use `python tools/manifest.py add ...` to append the manifest entry.
+7. Create or update one `wiki/sources/<slug>.md` page.
+8. Extract durable concepts and update or create `wiki/concepts/` pages.
+9. Extract durable entities and update or create `wiki/entities/` pages.
+10. Flag contradictions, tensions, and changed claims on affected pages.
+11. Update `wiki/index.md`.
+12. Update `wiki/overview.md` if the source changes the broader picture.
+13. Append an entry to `wiki/log.md`.
+14. Run `python tools/health.py`.
+15. Report changed pages and any unresolved issues.
 
 Version one prefers one source per ingest. Batch ingest is future tooling and must use `raw/source-manifest.jsonl` content hashes for idempotency.
 
@@ -509,10 +512,29 @@ If conversion is unavailable for a source format, the agent should ask the user 
 Minimum CLI contract:
 
 ```bash
-python tools/convert.py <input_path_or_url> --out raw/converted/<slug>.md
+python tools/convert.py <input_path> --out raw/converted/<slug>.md
 ```
 
 Current conversion writes converted artifacts only under `raw/converted/` and refuses to overwrite existing outputs. Conversion does not update `raw/source-manifest.jsonl` or wiki pages; ingest must still record provenance.
+
+### Ingest Prep
+
+Ingest Prep v1 update: `tools/prepare_ingest.py` and `tools/manifest.py` are implemented deterministic helpers for the preflight and manifest portions of ingest. They intentionally stop short of semantic work.
+
+`prepare_ingest.py` accepts supported local Markdown/text inputs, computes a content hash, checks duplicate source IDs and hashes, recommends a source template, and can write `graph/ingest-prep-report.md` when called with `--report`. It does not call an LLM, extract claims, create source pages, or update index/log.
+
+`manifest.py` provides `check`, `find`, and `add` subcommands for `raw/source-manifest.jsonl`. It validates entries and appends one finalized record, but it does not create wiki pages or maintain `wiki/index.md` and `wiki/log.md`.
+
+Minimum CLI contract:
+
+```bash
+python tools/prepare_ingest.py <input> [--json] [--report graph/ingest-prep-report.md]
+python tools/manifest.py check
+python tools/manifest.py find --source-id <source-id>
+python tools/manifest.py find --hash <sha256:...>
+python tools/manifest.py find --path <raw-or-converted-path>
+python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>
+```
 
 ## Naming Conventions
 
@@ -554,6 +576,10 @@ Future verification should add:
 ## Query & Synthesis v1 update
 
 As of 2026-05-14, `tools/query.py` and `tools/save_synthesis.py` are deterministic helpers. `tools/query.py` builds local context packets and `tools/save_synthesis.py` persists user-approved synthesis pages while updating index/log, without LLM calls, remote fetches, or raw-source ingestion.
+
+## Ingest Prep v1 update
+
+As of 2026-05-15, `tools/prepare_ingest.py` and `tools/manifest.py` are implemented. They make duplicate detection, source ID confirmation, optional `graph/ingest-prep-report.md` generation, and manifest maintenance deterministic while preserving the agent-first rule that only the ingest workflow creates wiki pages and updates index/log.
 
 ## References
 

@@ -18,9 +18,15 @@ python tools/health.py --json
 python tools/lint.py
 python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
+python tools/prepare_ingest.py raw/originals/example.txt --json
+python tools/manifest.py check
+python tools/manifest.py find --source-id example-source
+python tools/manifest.py add --source-id example-source --raw-path raw/originals/example.txt --content-hash sha256:<64-hex-digits> --collected-at YYYY-MM-DD
 python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 ```
 
 For this fixture's agent-first ingest protocol, see `AGENTS.md`. The fixture includes the base source template at `templates/source.md`; the full repository root includes additional domain-specific source templates.
 
 `convert.py` supports local Markdown/text inputs only. PDF, Office documents, remote URLs, HTML rendering, and binary files need a readable text or Markdown artifact first.
+
+`prepare_ingest.py` only performs preflight and optional report generation; it does not call an LLM or create wiki pages. `manifest.py` only checks, finds, or appends `raw/source-manifest.jsonl` entries and does not update index/log.

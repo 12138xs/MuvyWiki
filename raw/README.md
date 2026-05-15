@@ -13,6 +13,18 @@ Ingest v2 supports local Markdown/text files, pasted text, and already converted
 
 `tools/convert.py` does not update source-manifest.jsonl. The ingest workflow records artifacts and provenance after conversion.
 
+`tools/prepare_ingest.py` performs ingest preflight against local Markdown/text inputs. It can emit JSON or write `graph/ingest-prep-report.md` when called with `--report`, but it does not create wiki pages, update `wiki/index.md`, or update `wiki/log.md`.
+
+`tools/manifest.py` is the manifest helper:
+
+- `python tools/manifest.py check` validates manifest shape, duplicate IDs/hashes/paths, and referenced raw/converted files.
+- `python tools/manifest.py find --source-id <source-id>` reports whether a source ID already exists.
+- `python tools/manifest.py find --hash <sha256:...>` reports whether a content hash already exists.
+- `python tools/manifest.py find --path <raw-or-converted-path>` reports whether a raw, converted, or converted-from path already exists.
+- `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>` appends one validated entry to `raw/source-manifest.jsonl`.
+
+`manifest.py` only maintains `raw/source-manifest.jsonl`. It does not create source pages, extract claims, or update index/log.
+
 PDF, Office documents, remote webpages, HTML rendering, and binary files are not converted automatically yet.
 
 ## Manifest Format

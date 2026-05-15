@@ -38,10 +38,13 @@ REQUIRED_PATHS = [
     "tools/lint.py",
     "tools/build_graph.py",
     "tools/convert.py",
+    "tools/manifest.py",
+    "tools/prepare_ingest.py",
     "tools/query.py",
     "tools/save_synthesis.py",
     "graph/README.md",
 ]
+INGEST_PREP_PATHS = {"tools/manifest.py", "tools/prepare_ingest.py"}
 
 INDEX_ENTRY_RE = re.compile(
     r"^- \[\[(?P<id>[^|\]]+)\|(?P<title>[^\]]+)\]\] "
@@ -300,7 +303,15 @@ def load_manifest(root: Path, issues: list[Issue]) -> dict[str, dict[str, object
 
 
 def check_required_paths(root: Path, issues: list[Issue]) -> None:
+    documented_text = ""
+    for rel in ("README.md", "AGENTS.md", "USER_GUIDE.md", "raw/README.md"):
+        path = root / rel
+        if path.exists():
+            documented_text += read_text(path)
+    ingest_prep_documented = "tools/prepare_ingest.py" in documented_text or "tools/manifest.py" in documented_text
     for rel in REQUIRED_PATHS:
+        if rel in INGEST_PREP_PATHS and not ingest_prep_documented:
+            continue
         if not (root / rel).exists():
             issues.append(Issue(rel, "missing required path"))
 

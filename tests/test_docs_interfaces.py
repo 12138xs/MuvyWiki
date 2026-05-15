@@ -9,6 +9,49 @@ class DocsInterfaceTests(unittest.TestCase):
     def read(self, rel):
         return (ROOT / rel).read_text(encoding="utf-8")
 
+    def assert_no_current_support_claims(self, rel, phrases):
+        text = self.read(rel)
+        normalized = text.replace("\n", " ")
+        sentences = [
+            sentence.strip()
+            for sentence in normalized.replace(";", ".").split(".")
+            if sentence.strip()
+        ]
+        safe_markers = (
+            "does not",
+            "do not",
+            "doesn't",
+            "no pdf",
+            "no office",
+            "no llm",
+            "unsupported",
+            "not supported",
+            "not implemented",
+            "not converted",
+            "future work",
+            "remain future work",
+            "future versions",
+            "ask the user",
+            "rather than",
+            "不支持",
+            "暂不直接支持",
+            "仍不支持",
+            "不调用",
+            "不会调用",
+        )
+        for phrase in phrases:
+            matches = [
+                sentence
+                for sentence in sentences
+                if phrase in sentence.lower()
+                and not any(marker in sentence.lower() for marker in safe_markers)
+            ]
+            self.assertEqual(
+                [],
+                matches,
+                f"{rel} appears to claim current support for {phrase!r}: {matches}",
+            )
+
     def test_readme_marks_tools_implemented_or_partial(self):
         readme = self.read("README.md")
         self.assertIn("| Semantic lint | Implemented |", readme)
@@ -22,7 +65,21 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertIn("python tools/lint.py", agents)
         self.assertIn("python tools/build_graph.py", agents)
         self.assertIn("python tools/convert.py", agents)
+        self.assertIn("python tools/prepare_ingest.py", agents)
+        self.assertIn("python tools/manifest.py", agents)
         self.assertNotIn("Reserved interfaces:", agents)
+
+    def test_ingest_prep_interfaces_are_documented(self):
+        readme = self.read("README.md")
+        guide = self.read("USER_GUIDE.md")
+        agents = self.read("AGENTS.md")
+        raw = self.read("raw/README.md")
+        graph = self.read("graph/README.md")
+        for text in (readme, guide, agents):
+            self.assertIn("python tools/prepare_ingest.py", text)
+            self.assertIn("python tools/manifest.py", text)
+        self.assertIn("manifest.py", raw)
+        self.assertIn("ingest-prep-report.md", graph)
 
     def test_fixture_support_docs_match_current_interfaces(self):
         agents = self.read("examples/ingest/AGENTS.md")
@@ -67,6 +124,43 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertNotIn("reserved interfaces with documented command behavior", design)
         self.assertNotIn("must use exit code `3`", design)
         self.assertNotIn("remain reserved interfaces", ingest)
+        self.assertNotIn("ingesting a URL", design)
+        self.assertNotIn("<input_path_or_url>", design)
+
+    def test_docs_do_not_claim_unsupported_current_automation(self):
+        docs = [
+            "README.md",
+            "USER_GUIDE.md",
+            "AGENTS.md",
+            "raw/README.md",
+            "graph/README.md",
+            "examples/ingest/README.md",
+            "docs/superpowers/specs/2026-05-12-muvywiki-design.md",
+        ]
+        phrases = [
+            "fetch remote",
+            "crawl",
+            "render remote",
+            "automatic ingest",
+            "automatic wiki page creation",
+            "pdf conversion is implemented",
+            "office documents are supported",
+            "llm extraction is implemented",
+            "automatically extracts",
+            "automatic pdf",
+            "automatic office",
+            "pdf 转换已实现",
+            "office 文档已支持",
+            "llm 自动抽取已实现",
+        ]
+        for doc in docs:
+            with self.subTest(doc=doc):
+                self.assert_no_current_support_claims(doc, phrases)
+
+    def test_ingest_example_documents_duplicate_preflight_exit_code(self):
+        readme = self.read("examples/ingest/README.md")
+        self.assertIn("python tools/prepare_ingest.py raw/originals/tiny-rag-note.md", readme)
+        self.assertIn("expected to exit `1`", readme)
 
     def test_query_and_synthesis_interfaces_are_documented(self):
         readme = self.read("README.md")
@@ -81,6 +175,34 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertIn("synthesis` nodes", graph)
         self.assertIn("graph outputs", graph)
         self.assertIn("## Query & Synthesis v1 update", design)
+
+    def test_manifest_find_docs_use_option_form(self):
+        docs = [
+            "README.md",
+            "USER_GUIDE.md",
+            "AGENTS.md",
+            "raw/README.md",
+            "examples/ingest/README.md",
+            "examples/ingest/README-root.md",
+            "examples/ingest/AGENTS.md",
+            "examples/ingest/raw/README.md",
+            "docs/superpowers/specs/2026-05-12-muvywiki-design.md",
+            "docs/superpowers/specs/2026-05-12-ingest-v2-design.md",
+        ]
+        option_examples = (
+            "python tools/manifest.py find --source-id",
+            "python tools/manifest.py find --hash",
+            "python tools/manifest.py find --path",
+        )
+        for doc in docs:
+            with self.subTest(doc=doc):
+                text = self.read(doc)
+                self.assertNotIn("manifest.py find <source-id-or-hash>", text)
+                self.assertNotRegex(text, r"manifest\.py find (?!--)[^\s`]+")
+                self.assertTrue(
+                    any(example in text for example in option_examples),
+                    f"{doc} must document manifest.py find with an option form",
+                )
 
     def test_historical_plans_are_labeled(self):
         initial = self.read("docs/superpowers/plans/2026-05-12-muvywiki-implementation.md")

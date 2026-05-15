@@ -65,6 +65,12 @@ graph/              # 生成的图谱输出目录
 - `python tools/lint.py --json`：机器可读 lint 输出。
 - `python tools/lint.py --report graph/lint-report.md`：写入 Markdown lint 报告。
 - `python tools/build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+- `python tools/prepare_ingest.py <input> --json`：正式摄取前的本地预检；不调用 LLM，不创建 wiki 页面。
+- `python tools/manifest.py check`：检查 `raw/source-manifest.jsonl` 结构、路径和重复项。
+- `python tools/manifest.py find --source-id <source-id>`：按 source ID 查找 manifest 记录。
+- `python tools/manifest.py find --hash <sha256:...>`：按内容 hash 查找 manifest 记录。
+- `python tools/manifest.py find --path <raw-or-converted-path>`：按 raw、converted 或 converted-from 路径查找 manifest 记录。
+- `python tools/manifest.py add ...`：在最终 raw path、source ID 和 hash 确认后追加 manifest 记录。
 - `python tools/query.py "retrieval augmented generation"`：为 agent 查找本地 wiki 上下文，不生成回答。
 - `python tools/query.py "retrieval augmented generation" --json`：机器可读 query context 输出。
 - `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md`：保存用户确认过的 synthesis 页面，并更新 index/log。
@@ -81,6 +87,8 @@ graph/              # 生成的图谱输出目录
 - 直接把远程 URL 抓取进知识库。
 
 转换不等于 ingest。使用 `convert.py` 之后，仍需要让 agent 按 ingest 流程更新 `raw/source-manifest.jsonl`、source 页面、index 和 log。
+
+`prepare_ingest.py` 和 `manifest.py` 也不等于 ingest。`prepare_ingest.py` 只做正式摄取前的预检、重复检查和建议；除非显式使用 `--report graph/ingest-prep-report.md`，它不会写文件。`manifest.py` 只维护 `raw/source-manifest.jsonl`，不会创建 source 页面，不会更新 `wiki/index.md` 或 `wiki/log.md`。
 
 ## 如何添加一份新资料
 
@@ -133,13 +141,17 @@ graph/              # 生成的图谱输出目录
 一次 ingest 应该完成这些事：
 
 1. 保存或读取原始资料。
-2. 计算内容 hash，检查 `raw/source-manifest.jsonl` 是否已有重复来源。
-3. 创建或更新 `wiki/sources/<source-id>.md`。
-4. 抽取稳定概念，更新 `wiki/concepts/`。
-5. 抽取重要实体，更新 `wiki/entities/`。
-6. 如果值得长期保存，更新 `wiki/overview.md` 或创建 `wiki/syntheses/` 页面。
-7. 更新 `wiki/index.md` 和 `wiki/log.md`。
-8. 运行 `python tools/health.py`。
+2. 运行 `python tools/prepare_ingest.py <input> --json` 做预检。
+3. 如需人工可读报告，运行 `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md`。
+4. 用 `python tools/manifest.py check` 检查 manifest 当前状态。
+5. 用 `python tools/manifest.py find --source-id <source-id>`、`python tools/manifest.py find --hash <sha256:...>` 或 `python tools/manifest.py find --path <raw-or-converted-path>` 确认不是重复来源。
+6. 最终 raw path、source ID 和 hash 确定后，用 `python tools/manifest.py add ...` 追加 manifest 记录。
+7. 创建或更新 `wiki/sources/<source-id>.md`。
+8. 抽取稳定概念，更新 `wiki/concepts/`。
+9. 抽取重要实体，更新 `wiki/entities/`。
+10. 如果值得长期保存，更新 `wiki/overview.md` 或创建 `wiki/syntheses/` 页面。
+11. 更新 `wiki/index.md` 和 `wiki/log.md`。
+12. 运行 `python tools/health.py`。
 
 ## 页面类型
 
@@ -307,6 +319,13 @@ python tools/lint.py
 python tools/lint.py --json
 python tools/lint.py --report graph/lint-report.md
 python tools/build_graph.py
+python tools/prepare_ingest.py raw/originals/example.md --json
+python tools/prepare_ingest.py raw/originals/example.md --report graph/ingest-prep-report.md
+python tools/manifest.py check
+python tools/manifest.py find --source-id example-source
+python tools/manifest.py find --hash sha256:<64-hex-digits>
+python tools/manifest.py find --path raw/originals/example.md
+python tools/manifest.py add --source-id example-source --raw-path raw/originals/example.md --content-hash sha256:<64-hex-digits> --collected-at YYYY-MM-DD
 python tools/query.py "retrieval augmented generation"
 python tools/query.py "retrieval augmented generation" --json
 python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md
@@ -316,6 +335,8 @@ python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
 `lint.py` 会检查空的必填章节、source 缺少 claims/evidence、concept 缺少 supporting sources、entity 缺少 evidence、孤立页面，以及 index 里仍保留的 `No ... yet.` 过期摘要。
 
 `build_graph.py` 会从 wiki frontmatter、wikilinks、`source_ids`、`related_ids`、raw paths 和 provenance 生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+
+`prepare_ingest.py` 会读取本地 Markdown/text 输入，计算 hash，检查 manifest 重复项，并给出 source ID、模板和下一步建议；它不会调用 LLM，也不会创建 wiki 页面。`manifest.py` 提供 `check`、`find` 和 `add` 子命令，只负责 `raw/source-manifest.jsonl`。
 
 `query.py` 会查找本地 wiki 上下文包，但不生成回答、不联网、不摄取新 raw source。`save_synthesis.py` 会保存已经由用户确认的 synthesis 页面并维护 index/log，但不会调用 LLM，也不会把回答当作新来源写入 raw manifest。
 

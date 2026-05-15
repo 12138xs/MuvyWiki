@@ -13,6 +13,17 @@ This fixture supports local Markdown/text conversion into `raw/converted/` throu
 
 `tools/convert.py` does not update source-manifest.jsonl. The ingest workflow records artifacts and provenance after conversion.
 
+`tools/prepare_ingest.py` performs local Markdown/text preflight before formal ingest. It may report that `raw/originals/tiny-rag-note.md` is a duplicate because this fixture already contains that source.
+
+`tools/manifest.py` supports:
+
+- `python tools/manifest.py check`
+- `python tools/manifest.py find --source-id tiny-rag-note`
+- `python tools/manifest.py find --hash <sha256:...>`
+- `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>`
+
+`manifest.py` only maintains `raw/source-manifest.jsonl`. It does not create wiki pages or update index/log.
+
 PDF, Office documents, remote webpages, HTML rendering, and binary files are not converted automatically.
 
 Each manifest line is JSON:
