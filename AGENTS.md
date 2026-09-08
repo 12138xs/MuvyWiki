@@ -26,7 +26,7 @@ Implemented deterministic interfaces:
 - `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>` appends one validated manifest entry.
 - `python tools/query.py "retrieval augmented generation"` builds a local context packet for an agent answer.
 - `python tools/query.py "retrieval augmented generation" --json` emits the local context packet as JSON.
-- `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` persists a user-approved synthesis page and updates index/log.
+- `python tools/save_synthesis.py --help` documents the interface that persists a user-approved synthesis page from real answer/evidence Markdown and updates index/log.
 - `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 - `python -m unittest discover -s tests` runs the repository test suite.
 

@@ -1,404 +1,329 @@
 # MuvyWiki 使用手册
 
-MuvyWiki 是一个由你和 LLM 共同维护的个人知识库。你负责选择资料、提出问题、判断方向；LLM 负责整理来源、生成结构化页面、维护索引、记录日志、检查结构健康。
+MuvyWiki 是一个由使用者和 agent 共同维护的个人知识库。使用者负责选择合法来源、判断事实与决定是否保存综合结论；agent 按 [AGENTS.md](AGENTS.md) 读取来源、维护知识页面、更新索引和日志，并使用确定性工具验证结果。
 
-第一版适合技术文章、论文、开源项目、研究笔记和长期问题追踪；轻量图谱、语义 lint、本地 Markdown/text 转换接口已经可用，批量导入和复杂文档转换仍留作后续扩展。
+## 1. 获取、安装与首次验证
 
-## 快速开始
+### 环境要求
 
-常用入口：
+- 已获得私有仓库 `12138xs/MuvyWiki` 的 GitHub 访问权限；
+- Git；
+- Python 3.10 或更高版本；
+- 不需要安装第三方 Python 包，当前运行时只使用标准库。
 
-- `README.md`：项目简介和命令速查。
-- `AGENTS.md`：给 Codex/LLM 看的维护规则。
-- `wiki/index.md`：知识库总索引，找内容先看这里。
-- `wiki/overview.md`：知识库当前状态和长期主题。
-- `wiki/log.md`：操作日志。
-
-常用检查命令：
+macOS 或 Linux：
 
 ```bash
+git clone https://github.com/12138xs/MuvyWiki.git
+cd MuvyWiki
+python3 -m venv .venv
+source .venv/bin/activate
+python --version
 python tools/health.py
-python tools/health.py --json
-python tools/lint.py
-python -m unittest discover -s tests
+python tools/demo.py
 ```
 
-`health.py` 是第一版最重要的结构质量门。每次新增资料、修改索引、改页面结构后，都应该运行一次；`lint.py` 用来补充检查空章节、缺少证据、孤立页面等维护风险。
+Windows PowerShell：
 
-## 目录说明
+```powershell
+git clone https://github.com/12138xs/MuvyWiki.git
+cd MuvyWiki
+py -3.10 -m venv .venv
+.venv\Scripts\activate
+python --version
+python tools/health.py
+python tools/demo.py
+```
+
+`python --version` 应为 3.10 或更高版本。首次验证的稳定输出应包含：
+
+```text
+MuvyWiki health: ok
+MuvyWiki demo: ok
+Steps: health -> lint -> query -> graph
+Workspace modified: no
+```
+
+demo 中的匹配数和图节点数必须大于 0，未来随 fixture 调整可能变化。demo 在临时目录运行，不会修改当前工作区。
+
+## 2. 立即查询已有知识
+
+根知识库已经包含一份可追溯的仓库契约来源，因此无需先导入材料即可查询：
+
+```bash
+python tools/query.py "repository root isolation provenance"
+```
+
+结果应包含 `muvywiki-repository-contract` 和 `RepositoryRootIsolation`。机器可读输出：
+
+```bash
+python tools/query.py "repository root isolation provenance" --json
+```
+
+需要匹配章节摘要时增加 `--include-sections`。query 是确定性关键词检索，只生成 context packet；它不会联网、调用 LLM、自动写入知识库或生成最终答案。
+
+## 3. 仓库结构
 
 ```text
 raw/
-  originals/        # 原始资料，追加写入，不覆盖
-  converted/        # 转换后的 Markdown 或文本
+  originals/        原始资料，只追加、不覆盖
+  converted/        从原始资料转换出的 Markdown/text
   source-manifest.jsonl
 
 wiki/
-  index.md          # 全局索引
-  overview.md       # 总览
-  log.md            # 操作日志
-  sources/          # 每个来源一页
-  concepts/         # 可复用概念
-  entities/         # 人、组织、项目、论文、工具等实体
-  syntheses/        # 值得保存的综合回答
+  index.md          所有维护页面的全局索引
+  overview.md       当前知识地图与重点主题
+  log.md            规范化维护日志
+  sources/          每个来源一页
+  concepts/         可跨来源复用的概念
+  entities/         人、组织、项目、论文、工具等实体
+  syntheses/        经使用者确认后保存的综合判断
 
-templates/          # 页面模板
-tools/              # 健康检查、lint、图谱和本地转换工具
-graph/              # 生成的图谱输出目录
+templates/          页面模板
+tools/              确定性命令行工具
+tests/              单元和集成测试
+examples/ingest/    只包含内容的完整 ingest fixture
+graph/              本地生成的图数据、HTML 和报告
 ```
 
-## 核心原则
+三个核心边界：
 
-`raw/` 是原始资料层。已有文件不要直接改写；如果要清洗或转换，原件放在 `raw/originals/`，转换结果放在 `raw/converted/`。
+- `raw/` 保存来源证据，已有文件不得原地改写；
+- `wiki/` 保存能够继续演进的知识，不应只复制原文；
+- `tools/` 检查结构和执行轻量操作，但不代替 agent 的阅读、抽取和判断。
 
-`wiki/` 是知识层。这里的页面可以被 LLM 更新，用来承载摘要、概念、实体、证据、矛盾和综合判断。
+## 4. 工具接口
 
-`AGENTS.md` 是操作协议。以后让 Codex 摄取资料或回答知识库问题时，它应该遵守这里的规则。
-
-## 当前功能与接口状态
-
-当前已经可以直接使用：
-
-- `python tools/health.py`：结构健康检查。
-- `python tools/health.py --json`：机器可读健康检查输出。
-- `python tools/lint.py`：语义轻量 lint，检查空章节、缺少 claims/evidence、孤立页面等维护风险。
-- `python tools/lint.py --json`：机器可读 lint 输出。
-- `python tools/lint.py --report graph/lint-report.md`：写入 Markdown lint 报告。
-- `python tools/build_graph.py`：生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
-- `python tools/prepare_ingest.py <input> --json`：正式摄取前的本地预检；不调用 LLM，不创建 wiki 页面。
-- `python tools/manifest.py check`：检查 `raw/source-manifest.jsonl` 结构、路径和重复项。
-- `python tools/manifest.py find --source-id <source-id>`：按 source ID 查找 manifest 记录。
-- `python tools/manifest.py find --hash <sha256:...>`：按内容 hash 查找 manifest 记录。
-- `python tools/manifest.py find --path <raw-or-converted-path>`：按 raw、converted 或 converted-from 路径查找 manifest 记录。
-- `python tools/manifest.py add ...`：在最终 raw path、source ID 和 hash 确认后追加 manifest 记录。
-- `python tools/query.py "retrieval augmented generation"`：为 agent 查找本地 wiki 上下文，不生成回答。
-- `python tools/query.py "retrieval augmented generation" --json`：机器可读 query context 输出。
-- `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md`：保存用户确认过的 synthesis 页面，并更新 index/log。
-- `python tools/convert.py <input> --out raw/converted/<file>`：本地 Markdown/text 转换入口；不会自动更新 manifest 或 wiki 页面。
-- `python -m unittest discover -s tests`：项目测试套件。
-- `AGENTS.md` 里的 agent-first ingest/query 协议。
-- `templates/source.md` 和 `templates/sources/` 里的来源模板。
-- `examples/ingest/`：一个可运行的成功 ingest 示例。
-
-当前仍不支持：
-
-- PDF、Office 文档、远程网页、HTML 渲染和二进制文件转换。
-- embeddings、向量检索、LLM 自动抽取和批量导入。
-- 直接把远程 URL 抓取进知识库。
-
-转换不等于 ingest。使用 `convert.py` 之后，仍需要让 agent 按 ingest 流程更新 `raw/source-manifest.jsonl`、source 页面、index 和 log。
-
-`prepare_ingest.py` 和 `manifest.py` 也不等于 ingest。`prepare_ingest.py` 只做正式摄取前的预检、重复检查和建议；除非显式使用 `--report graph/ingest-prep-report.md`，它不会写文件。`manifest.py` 只维护 `raw/source-manifest.jsonl`，不会创建 source 页面，不会更新 `wiki/index.md` 或 `wiki/log.md`。
-
-## 如何添加一份新资料
-
-### Ingest v2 支持的输入
-
-当前 agent-first ingest 支持：
-
-- Markdown 文件。
-- 纯文本文件。
-- 直接粘贴到对话里的文本。
-- 已经放在 `raw/converted/` 的 Markdown。
-
-暂不直接支持：
-
-- PDF。
-- DOCX/PPTX/XLSX。
-- 需要联网抓取或渲染的 HTML。
-- 二进制文件。
-
-这些格式仍是后续扩展。现在遇到这类资料时，请先提供可读文本或转换后的 Markdown。
-
-### Ingest 请求示例
-
-```text
-请摄取 raw/originals/tiny-rag-note.md，类型是 technical article，更新 MuvyWiki，并运行 health。
-```
-
-```text
-请把下面这段研究笔记整理进 MuvyWiki；如果值得长期保存，请创建 source 页面和必要的 concept/entity 页面。
-```
-
-```text
-请检查这份资料是否已经在 raw/source-manifest.jsonl 里存在；如果不是重复来源，再 ingest。
-```
-
-推荐对 Codex 这样说：
-
-```text
-请 ingest 这份本地 Markdown/text 文件：<文件路径>
-```
-
-如果你手上只有网页链接，请先粘贴正文，或先提供转换后的本地 Markdown 文件。
-
-或者：
-
-```text
-请把 raw/originals/<文件名> 摄取进 MuvyWiki。
-```
-
-一次 ingest 应该完成这些事：
-
-1. 保存或读取原始资料。
-2. 运行 `python tools/prepare_ingest.py <input> --json` 做预检。
-3. 如需人工可读报告，运行 `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md`。
-4. 用 `python tools/manifest.py check` 检查 manifest 当前状态。
-5. 用 `python tools/manifest.py find --source-id <source-id>`、`python tools/manifest.py find --hash <sha256:...>` 或 `python tools/manifest.py find --path <raw-or-converted-path>` 确认不是重复来源。
-6. 最终 raw path、source ID 和 hash 确定后，用 `python tools/manifest.py add ...` 追加 manifest 记录。
-7. 创建或更新 `wiki/sources/<source-id>.md`。
-8. 抽取稳定概念，更新 `wiki/concepts/`。
-9. 抽取重要实体，更新 `wiki/entities/`。
-10. 如果值得长期保存，更新 `wiki/overview.md` 或创建 `wiki/syntheses/` 页面。
-11. 更新 `wiki/index.md` 和 `wiki/log.md`。
-12. 运行 `python tools/health.py`。
-
-## 页面类型
-
-### Source 页面
-
-位置：`wiki/sources/`
-
-用于记录单个来源，例如一篇论文、一篇博客、一份项目文档。每个 ingested document 都应该有且只有一个 source 页面。
-
-Source 页面必须包含 provenance，用来追踪原始文件、URL、hash、转换结果和时间信息。
-
-### Concept 页面
-
-位置：`wiki/concepts/`
-
-用于沉淀可复用概念，例如 `RetrievalAugmentedGeneration`、`TransformerArchitecture`、`AgentMemory`。
-
-适合记录：
-
-- 定义
-- 核心机制
-- 适用边界
-- 支撑证据
-- 相关概念
-- 矛盾或争议
-
-### Entity 页面
-
-位置：`wiki/entities/`
-
-用于记录人、组织、项目、论文、工具、产品、数据集等对象。
-
-注意：一篇论文被首次摄取时先是 source。只有当它成为反复讨论的对象时，才需要单独创建 entity 页面。
-
-### Synthesis 页面
-
-位置：`wiki/syntheses/`
-
-用于保存高价值综合回答，例如：
-
-- “RAG 系统从 2023 到 2026 的主要架构变化”
-- “我目前对 AI agent memory 的判断”
-- “某两个开源项目的技术路线比较”
-
-普通查询不会自动写文件。若回答值得长期保存，Codex 应该先问你是否保存为 synthesis 页面。
-
-## 命名规则
-
-Source 和 synthesis 文件名使用 kebab-case：
-
-```text
-attention-is-all-you-need.md
-rag-systems-architecture-survey.md
-```
-
-Concept 和 entity 文件名使用 PascalCase 或官方大小写：
-
-```text
-RetrievalAugmentedGeneration.md
-OpenAI.md
-AndrejKarpathy.md
-GPT5.md
-```
-
-内部链接必须指向 canonical ID：
-
-```markdown
-[[RetrievalAugmentedGeneration|Retrieval-Augmented Generation]]
-```
-
-不要把 alias 当成链接目标。alias 只是搜索和消歧用。
-
-## 如何提问
-
-可以这样问：
-
-```text
-我对 RAG 知道什么？
-```
-
-```text
-比较 wiki 里关于 agent memory 的几种方案。
-```
-
-```text
-基于现有知识库，整理一个「下一步该读什么」清单。
-```
-
-查询时，Codex 应该先读 `wiki/index.md`，再读相关页面，然后基于知识库回答。若使用了模型自身知识而不是 wiki 内容，应该明确标注。
-
-`python tools/query.py "retrieval augmented generation"` 可以作为确定性的第一轮上下文查找。它会从本地 wiki 找到可能相关的页面、链接和匹配分数，但不会调用 LLM，也不会替你生成最终答案。需要章节摘录时可以加 `--include-sections`。Agent 仍然需要阅读匹配到的 wiki 页面，优先基于 wiki 内容回答，并用 `[[WikiLinks]]` 标注来源。
-
-需要机器可读结果时可以运行：
-
-```bash
-python tools/query.py "retrieval augmented generation" --json
-```
-
-## 如何保存综合回答
-
-普通查询不会自动写入知识库。只有当你确认这次回答值得长期保存时，agent 才应该保存 synthesis 页面。
-
-保存流程：
-
-1. Agent 先向你确认是否保存。
-2. Agent 准备 answer Markdown 和 evidence Markdown。
-3. Agent 使用 `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` 写入 synthesis 页面，并更新 `wiki/index.md` 和 `wiki/log.md`。
-4. Agent 运行 `python tools/health.py` 和 `python tools/lint.py`，修复结构问题后再报告完成。
-
-## 日志和索引
-
-`wiki/index.md` 必须包含每个 wiki 页面，格式类似：
-
-```markdown
-- [[CanonicalID|Human Title]] (`wiki/path/File.md`) - type: concept - updated: YYYY-MM-DD - One sentence summary.
-```
-
-`wiki/log.md` 每条记录必须包含：
-
-```markdown
-## [YYYY-MM-DD] operation | title
-
-- Changed pages:
-- Raw paths:
-- Source IDs:
-- Unresolved issues:
-```
-
-允许的 operation 包括：`init`、`ingest`、`query`、`health`、`lint`、`graph`、`convert`、`batch`。
-
-## 健康检查
-
-运行：
+### 健康、lint 与测试
 
 ```bash
 python tools/health.py
-```
-
-机器可读输出：
-
-```bash
 python tools/health.py --json
-```
-
-它会检查：
-
-- 必要目录和文件是否存在。
-- 页面 frontmatter 是否符合规范。
-- `canonical_id` 是否和文件名一致。
-- `wiki/index.md` 是否收录所有页面，且页面类型和所在 section 是否正确。
-- `wiki/log.md` 是否有规范日志字段。
-- `[[WikiLinks]]` 是否能解析到 canonical ID。
-- source provenance 是否和 `raw/source-manifest.jsonl` 一致。
-- `raw_path` 和非空 `converted_path` 是否存在。
-- alias 和 canonical ID 是否有明显冲突。
-
-如果 health 失败，先修 health 报告的问题，再继续 ingest 或 query 保存。
-
-## 工具接口
-
-常用工具命令：
-
-```bash
 python tools/lint.py
 python tools/lint.py --json
-python tools/lint.py --report graph/lint-report.md
+python -m unittest discover -s tests
+```
+
+health 检查必要路径、frontmatter、canonical ID、index、log、wikilink、manifest 和 source provenance。lint 检查空章节、缺少 claims/evidence、孤立页面和过期 index 空状态。两者都通过才表示结构与基础内容形状合格；它们不证明所有知识结论都正确。
+
+### 图构建
+
+```bash
 python tools/build_graph.py
-python tools/prepare_ingest.py raw/originals/example.md --json
-python tools/prepare_ingest.py raw/originals/example.md --report graph/ingest-prep-report.md
+```
+
+该命令从 frontmatter、wikilink、source ID、related ID 和 raw path 生成：
+
+- `graph/graph.json`；
+- `graph/graph.html`；
+- `graph/graph-report.md`。
+
+生成文件用于本地查看，不应手工修改。
+
+### 选择其他知识库根
+
+health、lint、build_graph、convert、prepare_ingest、query 和 save_synthesis 接受 `--repo-root PATH`。fixture 示例：
+
+```bash
+python tools/health.py --repo-root examples/ingest
+python tools/lint.py --repo-root examples/ingest
+python tools/query.py --repo-root examples/ingest "retrieval augmented generation"
+```
+
+manifest 的全局参数放在子命令之前：
+
+```bash
+python tools/manifest.py --repo-root examples/ingest check
+python tools/manifest.py --repo-root examples/ingest find --source-id tiny-rag-note
+```
+
+显式 root 不存在或不是目录时，工具退出 `2`，不会继续读写。
+
+### 非破坏性 demo
+
+```bash
+python tools/demo.py
+python tools/demo.py --json
+```
+
+demo 将 `examples/ingest` 复制到临时目录，依次运行 health、lint、query 和 graph，并要求 query 与 graph 非空。它是新用户首选验证入口。
+
+## 5. 添加一份新资料
+
+### 支持的输入
+
+当前支持本地 UTF-8 Markdown、纯文本、对话中粘贴后保存的文本，以及已经转换为 Markdown/text 的材料。
+
+当前不支持直接抓取远程 URL，也不支持 PDF、DOCX、PPTX、XLSX、渲染 HTML 或二进制文件转换。遇到这些格式时，先提供一份有合法权利的本地 Markdown/text 版本。
+
+### 准备来源
+
+1. 确认资料真实、对提交和保存具有权利，并检查隐私；
+2. 为来源选择稳定的 kebab-case ID；
+3. 将原始文件加入 `raw/originals/`，不得覆盖已有文件；
+4. 对新文件运行预检。
+
+假设使用者已新增 `raw/originals/my-note.md`：
+
+```bash
+python tools/prepare_ingest.py raw/originals/my-note.md --json
+```
+
+`my-note.md` 是用户输入占位符，不是仓库自带文件。无需准备文件即可运行的示例是 `python tools/demo.py`。
+
+### 检查 manifest
+
+```bash
 python tools/manifest.py check
-python tools/manifest.py find --source-id example-source
-python tools/manifest.py find --hash sha256:<64-hex-digits>
-python tools/manifest.py find --path raw/originals/example.md
-python tools/manifest.py add --source-id example-source --raw-path raw/originals/example.md --content-hash sha256:<64-hex-digits> --collected-at YYYY-MM-DD
-python tools/query.py "retrieval augmented generation"
-python tools/query.py "retrieval augmented generation" --json
-python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md
-python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
+python tools/manifest.py find --source-id my-note
+python tools/manifest.py find --path raw/originals/my-note.md
 ```
 
-`lint.py` 会检查空的必填章节、source 缺少 claims/evidence、concept 缺少 supporting sources、entity 缺少 evidence、孤立页面，以及 index 里仍保留的 `No ... yet.` 过期摘要。
+预检会给出内容 hash。再用 `find --hash sha256:<64位小写十六进制>` 检查重复来源。只有 source ID、raw path、hash 和来源权利全部确认后，才运行 `python tools/manifest.py add ...`。
 
-`build_graph.py` 会从 wiki frontmatter、wikilinks、`source_ids`、`related_ids`、raw paths 和 provenance 生成 `graph/graph.json`、`graph/graph.html`、`graph/graph-report.md`。
+manifest add 只追加一行 JSONL，不会创建 source 页面，也不会更新 index/log。
 
-`prepare_ingest.py` 会读取本地 Markdown/text 输入，计算 hash，检查 manifest 重复项，并给出 source ID、模板和下一步建议；它不会调用 LLM，也不会创建 wiki 页面。`manifest.py` 提供 `check`、`find` 和 `add` 子命令，只负责 `raw/source-manifest.jsonl`。
+### Agent-led ingest
 
-`query.py` 会查找本地 wiki 上下文包，但不生成回答、不联网、不摄取新 raw source。`save_synthesis.py` 会保存已经由用户确认的 synthesis 页面并维护 index/log，但不会调用 LLM，也不会把回答当作新来源写入 raw manifest。
-
-`convert.py` 支持本地 Markdown/text 输入，输出必须是 `raw/converted/` 下的新文件。它不会自动更新 `raw/source-manifest.jsonl`，也不会自动创建 source 页面。
-
-PDF、Office、远程网页、HTML 渲染和二进制文件仍不支持。需要先手动提供可读文本或转换后的 Markdown。
-
-## 推荐日常工作流
-
-### 摄取资料
+向 agent 提出：
 
 ```text
-请摄取 raw/originals/<文件名>，更新 MuvyWiki，并运行 health。
+请摄取 raw/originals/my-note.md；深入阅读来源，维护 source、必要的 concept/entity、index 和 log，并运行 manifest、health 与 lint 检查。
 ```
 
-### 查询已有知识
+一次完成的 ingest 必须：
+
+1. 读取 `wiki/index.md`、`wiki/overview.md` 和相关现有页面；
+2. 运行 prepare_ingest 并检查 ID、hash、路径和重复项；
+3. 更新 `raw/source-manifest.jsonl`；
+4. 创建或更新唯一的 `wiki/sources/<source-id>.md`；
+5. 抽取有证据的 claims，不用目录或摘要冒充深入阅读；
+6. 只在可复用时创建 concept，只在会反复讨论时创建 entity；
+7. 明确记录不确定性、矛盾和 open questions；
+8. 更新 `wiki/index.md` 和 `wiki/log.md`；
+9. 仅在知识地图发生变化时更新 `wiki/overview.md`；
+10. 通过 manifest、health 和 lint 后再报告完成。
+
+`needs-review` 表示可见 backlog，不等于完成摄取。convert、prepare、manifest 或 health 单独成功也不等于完成摄取。
+
+## 6. 页面类型和命名
+
+### Source
+
+每个 ingested source 对应一个 `wiki/sources/<source-id>.md`。页面必须含完整 provenance，并与 manifest 中同一 source ID 的字段一致。
+
+### Concept
+
+`wiki/concepts/` 保存跨来源复用的概念。文件名和 canonical ID 使用 PascalCase 或规范产品大小写，页面要包含定义、机制、边界、证据和 supporting sources。
+
+### Entity
+
+`wiki/entities/` 保存会反复讨论的人、组织、项目、论文、数据集或工具。私人或偶发名称留在 source 页面，不应无理由升级为实体。
+
+### Synthesis
+
+`wiki/syntheses/` 保存经使用者确认、以后可能再次使用的综合判断。普通查询不会自动保存 synthesis。
+
+Source 和 synthesis ID 使用 kebab-case；concept 和 entity 使用 PascalCase 或官方大小写。内部链接始终指向 canonical ID：
+
+```markdown
+[[RepositoryRootIsolation|Repository Root Isolation（仓库根隔离）]]
+```
+
+## 7. 查询与保存综合回答
+
+向 agent 查询时可使用：
 
 ```text
-请基于 MuvyWiki 回答：<问题>
+请基于当前 MuvyWiki 回答：仓库根隔离解决了什么问题？只引用已有 wiki 页面；模型自身知识请单独标注。
 ```
 
-### 保存综合判断
+Agent 应先运行 query 获取候选，再阅读实际页面后回答。若回答值得长期维护，使用者需要明确确认保存。
 
-```text
-这次回答值得保存，请保存为 synthesis 页面，并更新 index/log。
+保存 synthesis 的接口说明可安全查看：
+
+```bash
+python tools/save_synthesis.py --help
 ```
 
-### 例行维护
+实际保存时，agent 会准备真实存在的 answer/evidence Markdown，选择新的 synthesis ID，调用 save_synthesis，并在写入后运行 health 与 lint。不要复制依赖不存在临时文件的示例命令。
 
-```text
-请运行 health，解释所有问题，并修复结构性问题。
+## 8. 开发与 CI
+
+本地合并前运行：
+
+```bash
+python -m unittest discover -s tests
+python tools/manifest.py check
+python tools/health.py
+python tools/lint.py
+python tools/demo.py
+python tools/health.py --repo-root examples/ingest
+python tools/lint.py --repo-root examples/ingest
 ```
 
-### 同步文档
+GitHub Actions 在 Python 3.10、3.11、3.12 上执行同一组门槛。修改 CLI 参数、默认值、输出、错误处理或目录结构时，必须同步更新 README、USER_GUIDE、AGENTS、当前 specs、相关目录 README、测试和 CI。
 
-```text
-请检查当前功能和接口，更新 README、USER_GUIDE、AGENTS、docs/superpowers/specs 以及相关目录 README，并运行测试、lint、graph 和 health。
-```
+## 9. 日志、索引与维护
 
-## 维护建议
+`wiki/index.md` 必须收录每个维护页面，并写明路径、类型、更新时间和一句话摘要。`wiki/log.md` 的每条操作至少包含 Changed pages、Raw paths、Source IDs 和 Unresolved issues。
 
-- 每次 ingest 后都运行 `python tools/health.py`。
-- 每次改工具接口、能力边界或 ingest 流程后，同步更新 `README.md`、`USER_GUIDE.md`、`AGENTS.md`、`docs/superpowers/specs` 和相关目录 README。
-- 不要手动绕过 `wiki/index.md` 和 `wiki/log.md`。
-- 不要直接覆盖 `raw/originals/` 里的既有文件。
-- 概念页不要太早泛滥；只有能复用的概念才单独成页。
-- Synthesis 页面应该保存“以后会再问”的判断，而不是每个普通回答。
-- 遇到矛盾时记录矛盾，不要静默选择一个说法覆盖另一个。
+日常维护原则：
 
-## 第一次使用建议
+- 每次 ingest 或结构变更后运行 health；
+- 活跃页面内容变化后运行 lint；
+- 不绕过 index 和 log；
+- 不覆盖已有 raw artifact；
+- 不为扩大页面数量而创建无证据 concept/entity；
+- 发现矛盾时记录矛盾，不静默覆盖旧判断；
+- fixture 只保存内容，不复制生产工具；
+- 生成图后确认没有意外未跟踪文件；
+- 提交前检查 diff、测试和敏感信息。
 
-可以从 3 到 5 份高价值技术资料开始，例如：
+## 10. 常见问题
 
-- 一篇你最近读过的技术文章。
-- 一篇论文。
-- 一个你长期关注的开源项目 README。
-- 一份你自己的研究笔记。
+### `python: command not found`
 
-摄取完后，问：
+确认虚拟环境已激活，或使用实际的 Python 3.10+ 命令。不要用 Python 2。
 
-```text
-请基于当前 MuvyWiki，总结我现在的技术/科研知识图谱雏形，并建议接下来该补哪些概念页。
-```
+### 私有仓库 clone 显示 `Repository not found`
 
-这样 MuvyWiki 会从“文件夹”开始变成真正的个人知识系统。
+先在 GitHub 登录有权限的账号，并确认 Git 凭据能够访问 `12138xs/MuvyWiki`。
+
+### `Invalid repository root`
+
+检查 `--repo-root` 指向的路径是否存在且为目录。fixture 命令应从项目根运行，路径为 `examples/ingest`。
+
+### health 失败
+
+按输出逐项修复缺失路径、frontmatter、index、log、wikilink、manifest 或 provenance。health 未通过时不要继续报告 ingest 完成。
+
+### lint 失败
+
+补充来源支持的 claims/evidence，连接孤立页面，清理 index 的过期空状态；尚未完成的内容保持 `needs-review`。
+
+### fixture preflight 返回 1
+
+`tiny-rag-note` 已存在于 fixture manifest，重复预检返回 1 是预期行为，不代表 fixture 损坏。
+
+### 运行命令后工作区出现变化
+
+普通 health、lint、query 和 demo 不应修改仓库。build_graph、带 `--report` 的 lint/prepare、convert、manifest add 和 save_synthesis 会写文件；运行前确认目标，运行后检查 `git status --short`。
+
+## 11. 安全边界
+
+不得把 API key、token、cookie、密码、数据库连接串、私钥、助记词、客户数据、个人身份信息或内部地址写入 raw、wiki、日志、测试 fixture 或 Git 历史。
+
+若真实凭据曾进入历史，删除 HEAD 文件并不足够：立即轮换凭据，再评估历史清理和协作者同步影响。
+
+来源必须真实且具有合法保存、加工和提交权利。第三方、生成、vendor 或复制内容必须说明来源与用途，不能冒充原创实现。
+
+## 12. 文档入口
+
+- [README.md](README.md)：首次安装、验证与接口总览；
+- [AGENTS.md](AGENTS.md)：agent 的完整维护协议；
+- [raw/README.md](raw/README.md)：来源与 manifest 规则；
+- [graph/README.md](graph/README.md)：图产物说明；
+- [examples/ingest/README.md](examples/ingest/README.md)：fixture 运行说明；
+- `docs/superpowers/specs/`：当前设计依据；
+- `docs/superpowers/plans/`：历史实施计划，不是当前操作指令。

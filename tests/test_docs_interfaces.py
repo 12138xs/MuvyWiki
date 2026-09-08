@@ -59,6 +59,51 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertIn("| Source conversion | Partial |", readme)
         self.assertNotIn("returns exit code `3`", readme)
 
+    def test_readme_has_a_complete_clone_to_demo_path(self):
+        readme = self.read("README.md")
+        required_steps = (
+            "git clone https://github.com/12138xs/MuvyWiki.git",
+            "cd MuvyWiki",
+            "python3 -m venv .venv",
+            "source .venv/bin/activate",
+            "python --version",
+            "python tools/health.py",
+            "python tools/demo.py",
+            "MuvyWiki demo: ok",
+            "Workspace modified: no",
+        )
+        for step in required_steps:
+            with self.subTest(step=step):
+                self.assertIn(step, readme)
+        self.assertIn("Python 3.10 or newer", readme)
+        self.assertIn("No third-party runtime dependencies", readme)
+
+    def test_current_onboarding_docs_do_not_reference_missing_example_inputs(self):
+        invalid_paths = (
+            "raw/originals/example.md",
+            "raw/originals/example.txt",
+            "raw/converted/example.md",
+            "/tmp/answer.md",
+            "/tmp/evidence.md",
+        )
+        for doc in ("README.md", "USER_GUIDE.md", "AGENTS.md"):
+            text = self.read(doc)
+            for invalid_path in invalid_paths:
+                with self.subTest(doc=doc, invalid_path=invalid_path):
+                    self.assertNotIn(invalid_path, text)
+
+    def test_readme_documentation_links_exist(self):
+        paths = (
+            "USER_GUIDE.md",
+            "AGENTS.md",
+            "raw/README.md",
+            "graph/README.md",
+            "examples/ingest/README.md",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertTrue((ROOT / path).is_file())
+
     def test_agents_do_not_call_interfaces_reserved(self):
         agents = self.read("AGENTS.md")
         self.assertIn("Implemented deterministic interfaces", agents)
