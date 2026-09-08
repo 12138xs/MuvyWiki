@@ -13,7 +13,8 @@ from pathlib import Path
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 
 
 def as_list(value: object) -> list[str]:
@@ -221,18 +222,21 @@ def html_artifact(graph: dict[str, object]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT
     parser = argparse.ArgumentParser(description="Build MuvyWiki graph artifacts.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("--json", default="graph/graph.json", help="Graph JSON output path.")
     parser.add_argument("--html", default="graph/graph.html", help="Graph HTML output path.")
     parser.add_argument("--report", default="graph/graph-report.md", help="Graph report output path.")
     args = parser.parse_args(argv)
 
     try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
         json_path = resolve_output(args.json)
         html_path = resolve_output(args.html)
         report_path = resolve_output(args.report)
     except ValueError as exc:
-        print(f"Invalid output path: {exc}", file=sys.stderr)
+        print(f"Invalid repository or output path: {exc}", file=sys.stderr)
         return 2
 
     graph = build_graph()

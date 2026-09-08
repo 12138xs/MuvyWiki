@@ -2,19 +2,19 @@
 
 ## Overview
 
-- [[overview|MuvyWiki Overview]] (`wiki/overview.md`) - type: overview - updated: 2026-05-12 - Living map of the knowledge base.
+- [[overview|MuvyWiki Overview]] (`wiki/overview.md`) - type: overview - updated: 2026-09-08 - Living map of the knowledge base.
 
 ## Sources
 
-No source pages yet.
+- [[muvywiki-repository-contract|MuvyWiki Repository Contract]] (`wiki/sources/muvywiki-repository-contract.md`) - type: source - updated: 2026-09-08 - Verified repository layers, root isolation, provenance, and validation contract.
 
 ## Concepts
 
-No concept pages yet.
+- [[RepositoryRootIsolation|Repository Root Isolation（仓库根隔离）]] (`wiki/concepts/RepositoryRootIsolation.md`) - type: concept - updated: 2026-09-08 - Bind tool reads and writes to an explicitly selected knowledge-base root.
 
 ## Entities
 
-No entity pages yet.
+- [[MuvyWiki|MuvyWiki（个人知识库项目）]] (`wiki/entities/MuvyWiki.md`) - type: entity - updated: 2026-09-08 - The maintained personal knowledge-base project represented by this repository.
 
 ## Syntheses
 

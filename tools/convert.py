@@ -13,7 +13,8 @@ from pathlib import Path
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 CONVERTED_ROOT = (ROOT / "raw" / "converted").resolve()
 REMOTE_URL_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
 SUPPORTED_SUFFIXES = {".md", ".markdown", ".txt", ""}
@@ -69,11 +70,19 @@ def convert_text(input_path: Path, text: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT, CONVERTED_ROOT
     parser = argparse.ArgumentParser(description="Convert local text or Markdown into raw/converted/.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("input_path_or_url", help="Input source path or URL.")
     parser.add_argument("--out", required=True, help="Output path under raw/converted/.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable conversion details.")
     args = parser.parse_args(argv)
+
+    try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
+    except ValueError as exc:
+        return fail(f"Invalid repository root: {exc}")
+    CONVERTED_ROOT = (ROOT / "raw" / "converted").resolve()
 
     if REMOTE_URL_RE.match(args.input_path_or_url):
         return fail("Remote URLs are not supported. Provide a local Markdown or text file.")

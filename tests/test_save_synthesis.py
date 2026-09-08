@@ -43,6 +43,7 @@ class SaveSynthesisToolTests(unittest.TestCase):
             "tools/lint.py",
             "tools/build_graph.py",
             "tools/convert.py",
+            "tools/demo.py",
             "tools/query.py",
             "graph/README.md",
         ):

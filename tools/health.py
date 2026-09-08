@@ -11,7 +11,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import wiki_utils
 
+
+TOOL_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_PATHS = [
     ".gitignore",
     "README.md",
@@ -38,6 +41,7 @@ REQUIRED_PATHS = [
     "tools/lint.py",
     "tools/build_graph.py",
     "tools/convert.py",
+    "tools/demo.py",
     "tools/manifest.py",
     "tools/prepare_ingest.py",
     "tools/query.py",
@@ -45,6 +49,7 @@ REQUIRED_PATHS = [
     "graph/README.md",
 ]
 INGEST_PREP_PATHS = {"tools/manifest.py", "tools/prepare_ingest.py"}
+TOOL_PATHS = {path for path in REQUIRED_PATHS if path.startswith("tools/")}
 
 INDEX_ENTRY_RE = re.compile(
     r"^- \[\[(?P<id>[^|\]]+)\|(?P<title>[^\]]+)\]\] "
@@ -302,7 +307,7 @@ def load_manifest(root: Path, issues: list[Issue]) -> dict[str, dict[str, object
     return entries
 
 
-def check_required_paths(root: Path, issues: list[Issue]) -> None:
+def check_required_paths(root: Path, issues: list[Issue], require_tools: bool = True) -> None:
     documented_text = ""
     for rel in ("README.md", "AGENTS.md", "USER_GUIDE.md", "raw/README.md"):
         path = root / rel
@@ -310,6 +315,8 @@ def check_required_paths(root: Path, issues: list[Issue]) -> None:
             documented_text += read_text(path)
     ingest_prep_documented = "tools/prepare_ingest.py" in documented_text or "tools/manifest.py" in documented_text
     for rel in REQUIRED_PATHS:
+        if rel in TOOL_PATHS and not require_tools:
+            continue
         if rel in INGEST_PREP_PATHS and not ingest_prep_documented:
             continue
         if not (root / rel).exists():
@@ -493,9 +500,9 @@ def check_wikilinks(root: Path, canonical_ids: set[str], issues: list[Issue]) ->
                 issues.append(Issue(rel, f"wikilink target not found: {target}"))
 
 
-def run(root: Path) -> list[Issue]:
+def run(root: Path, require_tools: bool = True) -> list[Issue]:
     issues: list[Issue] = []
-    check_required_paths(root, issues)
+    check_required_paths(root, issues, require_tools=require_tools)
     manifest_entries = load_manifest(root, issues)
     canonical_pages = check_wiki_pages(root, issues)
     canonical_ids = set(canonical_pages)
@@ -508,10 +515,17 @@ def run(root: Path) -> list[Issue]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run structural health checks for MuvyWiki.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("--json", action="store_true", help="Print machine-readable health output.")
     args = parser.parse_args(argv)
 
-    issues = run(Path.cwd())
+    try:
+        root = wiki_utils.resolve_repo_root(args.repo_root, Path.cwd())
+    except ValueError as exc:
+        print(f"Invalid repository root: {exc}", file=sys.stderr)
+        return 2
+
+    issues = run(root, require_tools=args.repo_root is None or root == TOOL_ROOT)
     status = "ok" if not issues else "issues"
     checked_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     if args.json:

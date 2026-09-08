@@ -16,6 +16,7 @@ Implemented deterministic interfaces:
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
 - `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/lint-report.md`.
 - `python tools/build_graph.py` writes local graph artifacts under `graph/`.
+- `python tools/demo.py` validates the bundled ingest fixture in a temporary directory without modifying the repository.
 - `python tools/prepare_ingest.py <input> --json` performs read-only ingest preflight for supported local Markdown/text inputs.
 - `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md` writes an optional ingest preflight report under `graph/`.
 - `python tools/manifest.py check` validates `raw/source-manifest.jsonl`.
@@ -25,7 +26,7 @@ Implemented deterministic interfaces:
 - `python tools/manifest.py add --source-id <source-id> --raw-path <raw-path> --content-hash <sha256:...> --collected-at <YYYY-MM-DD>` appends one validated manifest entry.
 - `python tools/query.py "retrieval augmented generation"` builds a local context packet for an agent answer.
 - `python tools/query.py "retrieval augmented generation" --json` emits the local context packet as JSON.
-- `python tools/save_synthesis.py --id example-synthesis --title "Example Synthesis" --question "What should be saved?" --answer-file /tmp/answer.md --evidence-file /tmp/evidence.md` persists a user-approved synthesis page and updates index/log.
+- `python tools/save_synthesis.py --help` documents the interface that persists a user-approved synthesis page from real answer/evidence Markdown and updates index/log.
 - `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 - `python -m unittest discover -s tests` runs the repository test suite.
 
@@ -170,6 +171,8 @@ Next step: <specific user action or agent action>
 
 Run `python tools/health.py` after structural edits and after ingest. Use `python tools/health.py --json` when machine-readable evidence is useful.
 
+GitHub Actions repeats the unit tests, manifest validation, root health/lint, non-mutating demo, and fixture checks on Python 3.10, 3.11, and 3.12. Keep local verification commands aligned with `.github/workflows/ci.yml`.
+
 ## Documentation Maintenance
 
 When functionality, interface capabilities, or workflow rules change, keep these documents aligned:
@@ -177,6 +180,8 @@ When functionality, interface capabilities, or workflow rules change, keep these
 - `README.md` for project status, command summary, and documentation map.
 - `USER_GUIDE.md` for user-facing workflows and current capabilities.
 - `AGENTS.md` for agent-facing rules and interface boundaries.
+- `ROADMAP.md` for module-specific future work and acceptance criteria.
+- `docs/milestones/` for historical capability boundaries and verification evidence.
 - Directory READMEs such as `raw/README.md`, `graph/README.md`, and `examples/ingest/README.md` when their contracts change.
 - `docs/superpowers/specs/` when implemented behavior changes a design assumption.
 - Historical implementation plans only need a status note when old instructions could be mistaken for current protocol.
@@ -189,7 +194,7 @@ python -m unittest discover -s tests
 python tools/lint.py
 python tools/health.py
 python tools/build_graph.py
-cd examples/ingest && python tools/lint.py
-cd examples/ingest && python tools/health.py
-cd examples/ingest && python tools/build_graph.py
+python tools/lint.py --repo-root examples/ingest
+python tools/health.py --repo-root examples/ingest
+python tools/build_graph.py --repo-root examples/ingest
 ```

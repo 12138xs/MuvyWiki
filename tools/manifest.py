@@ -15,7 +15,8 @@ from typing import Any
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 MANIFEST_REL = "raw/source-manifest.jsonl"
 MANIFEST_PATH = ROOT / MANIFEST_REL
 RAW_ROOT = ROOT / "raw/originals"
@@ -413,6 +414,7 @@ def command_add(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Validate and search MuvyWiki source manifest entries.")
+    wiki_utils.add_repo_root_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     check = subparsers.add_parser("check", help="Validate raw/source-manifest.jsonl.")
@@ -444,8 +446,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT, MANIFEST_PATH, RAW_ROOT, CONVERTED_ROOT
     parser = build_parser()
     args = parser.parse_args(argv)
+    try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
+    except ValueError as exc:
+        return fail(f"Invalid repository root: {exc}")
+    MANIFEST_PATH = ROOT / MANIFEST_REL
+    RAW_ROOT = ROOT / "raw/originals"
+    CONVERTED_ROOT = ROOT / "raw/converted"
     return args.func(args)
 
 

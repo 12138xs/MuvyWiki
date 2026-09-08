@@ -1,6 +1,6 @@
-# MuvyWiki Root README Snapshot
+# MuvyWiki Fixture Command Reference
 
-This file is a copied support snapshot for the ingest fixture. The fixture entrypoint is `README.md`; the full repository root contains the complete user guide and domain source templates.
+This file records how the full repository invokes this fixture. The fixture entrypoint is `README.md`; the project root contains the implementation, complete user guide, and domain source templates.
 
 MuvyWiki is a personal LLM-maintained knowledge base inspired by Andrej Karpathy's LLM Wiki pattern.
 
@@ -10,19 +10,18 @@ The repository has three layers:
 - `wiki/` stores the agent-maintained knowledge base.
 - `AGENTS.md` defines the operating rules for Codex and compatible agents.
 
-Common commands:
+Run these commands from the project root:
 
 ```bash
-python tools/health.py
-python tools/health.py --json
-python tools/lint.py
-python tools/lint.py --report graph/lint-report.md
-python tools/build_graph.py
-python tools/prepare_ingest.py raw/originals/example.txt --json
-python tools/manifest.py check
-python tools/manifest.py find --source-id example-source
-python tools/manifest.py add --source-id example-source --raw-path raw/originals/example.txt --content-hash sha256:<64-hex-digits> --collected-at YYYY-MM-DD
-python tools/convert.py raw/originals/example.txt --out raw/converted/example.md
+python tools/health.py --repo-root examples/ingest
+python tools/health.py --repo-root examples/ingest --json
+python tools/lint.py --repo-root examples/ingest
+python tools/lint.py --repo-root examples/ingest --report graph/lint-report.md
+python tools/build_graph.py --repo-root examples/ingest
+python tools/prepare_ingest.py --repo-root examples/ingest raw/originals/tiny-rag-note.md --json
+python tools/manifest.py --repo-root examples/ingest check
+python tools/manifest.py --repo-root examples/ingest find --source-id tiny-rag-note
+python tools/query.py --repo-root examples/ingest "retrieval augmented generation"
 ```
 
 For this fixture's agent-first ingest protocol, see `AGENTS.md`. The fixture includes the base source template at `templates/source.md`; the full repository root includes additional domain-specific source templates.

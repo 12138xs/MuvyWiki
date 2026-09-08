@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Show interpreter version
+        run: python --version
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
+
+      - name: Validate root manifest
+        run: python tools/manifest.py check
+
+      - name: Validate root knowledge base
+        run: |
+          python tools/health.py
+          python tools/lint.py
+
+      - name: Run non-mutating demo
+        run: python tools/demo.py
+
+      - name: Validate ingest fixture through root tools
+        run: |
+          python tools/health.py --repo-root examples/ingest
+          python tools/lint.py --repo-root examples/ingest
+          python tools/query.py --repo-root examples/ingest "retrieval augmented generation" --json
+
+      - name: Confirm generated checks leave the checkout clean
+        run: git diff --exit-code

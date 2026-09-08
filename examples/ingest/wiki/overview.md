@@ -37,4 +37,4 @@ This fixture demonstrates a successful ingest of a tiny technical note.
 
 ## Maintenance Notes
 
-- This example should pass `python tools/health.py` when run from `examples/ingest`.
+- This example should pass `python tools/health.py --repo-root examples/ingest` when run from the project root.
