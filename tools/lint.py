@@ -11,7 +11,8 @@ from pathlib import Path
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 
 Issue = dict[str, str]
 
@@ -308,7 +309,9 @@ def resolve_report(path: str) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT
     parser = argparse.ArgumentParser(description="Run semantic lint checks for MuvyWiki.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument(
         "--report",
         nargs="?",
@@ -317,6 +320,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", action="store_true", help="Write machine-readable lint output.")
     args = parser.parse_args(argv)
+
+    try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
+    except ValueError as exc:
+        print(f"Invalid repository root: {exc}", file=sys.stderr)
+        return 2
 
     issues = find_issues()
     checked_at = wiki_utils.utc_now()

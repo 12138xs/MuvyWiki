@@ -12,7 +12,8 @@ from pathlib import Path
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 ALLOWED_TYPES = {"source", "concept", "entity", "synthesis", "overview"}
 TYPE_PRIORITY = {"concept": 0, "synthesis": 1, "source": 2, "entity": 3, "overview": 4}
@@ -171,7 +172,9 @@ def text_output(payload: dict[str, object]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT
     parser = argparse.ArgumentParser(description="Build a MuvyWiki query context packet.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("query", help="Natural-language query text.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable query output.")
     parser.add_argument("--limit", type=int, default=8, help="Maximum number of matches.")
@@ -180,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
         if args.limit < 1:
             raise ValueError("--limit must be at least 1")
         type_filter = parse_types(args.type)

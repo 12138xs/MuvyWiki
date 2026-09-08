@@ -17,7 +17,8 @@ from typing import Any
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 RAW_ROOT = ROOT / "raw/originals"
 CONVERTED_ROOT = ROOT / "raw/converted"
 GRAPH_ROOT = ROOT / "graph"
@@ -376,18 +377,29 @@ def write_report(payload: dict[str, Any], report_path: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT, RAW_ROOT, CONVERTED_ROOT, GRAPH_ROOT, MANIFEST_PATH
     parser = argparse.ArgumentParser(
         description=(
             "Prepare local sources for agent-led MuvyWiki ingest. Read-only except "
             "for an explicit --report path under graph/."
         )
     )
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("inputs", nargs="+")
     parser.add_argument("--kind", choices=sorted(SOURCE_KINDS))
     parser.add_argument("--source-id")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--report")
     args = parser.parse_args(argv)
+
+    try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
+    except ValueError as exc:
+        return fail(f"Invalid repository root: {exc}")
+    RAW_ROOT = ROOT / "raw/originals"
+    CONVERTED_ROOT = ROOT / "raw/converted"
+    GRAPH_ROOT = ROOT / "graph"
+    MANIFEST_PATH = ROOT / "raw/source-manifest.jsonl"
 
     if args.source_id and len(args.inputs) != 1:
         return fail("--source-id can only be used with a single input.")

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import re
@@ -22,6 +23,28 @@ REMOTE_URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SUPPORTED_TEXT_SUFFIXES = {"", ".md", ".markdown", ".txt"}
+
+
+def resolve_repo_root(value: str | None, default: Path) -> Path:
+    """Resolve and validate the repository root selected by a CLI."""
+    candidate = default if value is None else Path(value).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError(f"repository root could not be resolved: {candidate}") from exc
+    if not resolved.is_dir():
+        raise ValueError(f"repository root is not a directory: {resolved}")
+    return resolved
+
+
+def add_repo_root_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--repo-root",
+        metavar="PATH",
+        help="Operate on PATH as the MuvyWiki repository root.",
+    )
 
 
 def utc_now() -> str:

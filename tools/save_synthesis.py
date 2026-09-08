@@ -13,7 +13,8 @@ from pathlib import Path
 import wiki_utils
 
 
-ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = DEFAULT_ROOT
 ALLOWED_CONFIDENCES = {"low", "medium", "high"}
 ALLOWED_STATUSES = {"seed", "active", "archived", "needs-review"}
 
@@ -357,6 +358,7 @@ def save(args: argparse.Namespace) -> dict[str, object]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Save a MuvyWiki synthesis page.")
+    wiki_utils.add_repo_root_argument(parser)
     parser.add_argument("--id", dest="synthesis_id", required=True, help="Kebab-case synthesis ID.")
     parser.add_argument("--title", required=True, help="Synthesis title.")
     parser.add_argument("--question", required=True, help="Question answered by the synthesis.")
@@ -372,9 +374,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global ROOT
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        ROOT = wiki_utils.resolve_repo_root(args.repo_root, DEFAULT_ROOT)
         payload = save(args)
     except ValidationError as exc:
         print(f"Save synthesis failed: {exc}", file=sys.stderr)
