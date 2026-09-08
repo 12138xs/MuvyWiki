@@ -48,3 +48,19 @@
   - none
 - Unresolved issues:
   - none
+
+## [2026-09-08] ingest | muvywiki-repository-contract
+
+- Changed pages:
+  - `wiki/sources/muvywiki-repository-contract.md`
+  - `wiki/concepts/RepositoryRootIsolation.md`
+  - `wiki/entities/MuvyWiki.md`
+  - `wiki/index.md`
+  - `wiki/overview.md`
+  - `wiki/log.md`
+- Raw paths:
+  - `raw/originals/muvywiki-repository-contract.md`
+- Source IDs:
+  - `muvywiki-repository-contract`
+- Unresolved issues:
+  - No saved synthesis yet; a stable query evaluation set remains future work.
