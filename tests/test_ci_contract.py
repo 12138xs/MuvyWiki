@@ -12,6 +12,13 @@ class CiContractTests(unittest.TestCase):
         self.assertIn('python-version: ["3.10", "3.11", "3.12"]', text)
         self.assertIn("python -m unittest discover -s tests", text)
 
+    def test_ci_uses_node_24_action_runtimes(self):
+        text = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("uses: actions/checkout@v5", text)
+        self.assertIn("uses: actions/setup-python@v6", text)
+        self.assertNotIn("uses: actions/checkout@v4", text)
+        self.assertNotIn("uses: actions/setup-python@v5", text)
+
     def test_ci_runs_root_and_fixture_quality_gates(self):
         text = WORKFLOW.read_text(encoding="utf-8")
         required_commands = (
