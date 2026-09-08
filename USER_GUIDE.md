@@ -325,5 +325,7 @@ GitHub Actions 在 Python 3.10、3.11、3.12 上执行同一组门槛。修改 C
 - [raw/README.md](raw/README.md)：来源与 manifest 规则；
 - [graph/README.md](graph/README.md)：图产物说明；
 - [examples/ingest/README.md](examples/ingest/README.md)：fixture 运行说明；
+- [ROADMAP.md](ROADMAP.md)：项目专属后续工作和验收条件；
+- [docs/milestones/README.md](docs/milestones/README.md)：开发阶段、commit 边界和验证证据；
 - `docs/superpowers/specs/`：当前设计依据；
 - `docs/superpowers/plans/`：历史实施计划，不是当前操作指令。

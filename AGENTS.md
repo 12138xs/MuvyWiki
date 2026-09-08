@@ -180,6 +180,8 @@ When functionality, interface capabilities, or workflow rules change, keep these
 - `README.md` for project status, command summary, and documentation map.
 - `USER_GUIDE.md` for user-facing workflows and current capabilities.
 - `AGENTS.md` for agent-facing rules and interface boundaries.
+- `ROADMAP.md` for module-specific future work and acceptance criteria.
+- `docs/milestones/` for historical capability boundaries and verification evidence.
 - Directory READMEs such as `raw/README.md`, `graph/README.md`, and `examples/ingest/README.md` when their contracts change.
 - `docs/superpowers/specs/` when implemented behavior changes a design assumption.
 - Historical implementation plans only need a status note when old instructions could be mistaken for current protocol.

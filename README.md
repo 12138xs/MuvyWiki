@@ -155,5 +155,7 @@ docs/                 current design records and historical plans
 - [raw/README.md](raw/README.md) — source storage and manifest rules.
 - [graph/README.md](graph/README.md) — graph output contract.
 - [examples/ingest/README.md](examples/ingest/README.md) — runnable fixture commands.
+- [ROADMAP.md](ROADMAP.md) — repository-specific next work and acceptance criteria.
+- [docs/milestones/README.md](docs/milestones/README.md) — commit boundaries and verification evidence.
 - `docs/superpowers/specs/` — design specifications.
 - `docs/superpowers/plans/` — historical implementation plans, not current instructions.
