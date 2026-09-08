@@ -16,6 +16,7 @@ Implemented deterministic interfaces:
 - `python tools/health.py` checks repository structure, wiki page frontmatter, index/log shape, wikilinks, source provenance, and required paths.
 - `python tools/lint.py` checks semantic-lite maintenance issues and may write `graph/lint-report.md`.
 - `python tools/build_graph.py` writes local graph artifacts under `graph/`.
+- `python tools/demo.py` validates the bundled ingest fixture in a temporary directory without modifying the repository.
 - `python tools/prepare_ingest.py <input> --json` performs read-only ingest preflight for supported local Markdown/text inputs.
 - `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md` writes an optional ingest preflight report under `graph/`.
 - `python tools/manifest.py check` validates `raw/source-manifest.jsonl`.

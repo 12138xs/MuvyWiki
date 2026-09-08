@@ -80,6 +80,7 @@ class HealthToolTests(unittest.TestCase):
             "tools/lint.py",
             "tools/build_graph.py",
             "tools/convert.py",
+            "tools/demo.py",
             "tools/manifest.py",
             "tools/prepare_ingest.py",
             "tools/query.py",
