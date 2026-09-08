@@ -171,6 +171,8 @@ Next step: <specific user action or agent action>
 
 Run `python tools/health.py` after structural edits and after ingest. Use `python tools/health.py --json` when machine-readable evidence is useful.
 
+GitHub Actions repeats the unit tests, manifest validation, root health/lint, non-mutating demo, and fixture checks on Python 3.10, 3.11, and 3.12. Keep local verification commands aligned with `.github/workflows/ci.yml`.
+
 ## Documentation Maintenance
 
 When functionality, interface capabilities, or workflow rules change, keep these documents aligned:
