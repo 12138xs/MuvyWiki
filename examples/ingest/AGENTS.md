@@ -1,13 +1,13 @@
 # MuvyWiki Ingest Fixture Agent Protocol
 
-This directory is a self-contained fixture that demonstrates one successful agent-first ingest. It is a runnable example, not the full project root.
+This directory is a content fixture that demonstrates one successful agent-first ingest. It is runnable through the tools at the full project root; it does not carry private copies of those tools.
 
 ## Core Model
 
 - `raw/` is append-only source storage.
 - `wiki/` is the maintained knowledge layer.
 - `templates/` defines canonical page shapes.
-- `tools/` contains deterministic checks and lightweight local interfaces.
+- The project-root `tools/` directory provides deterministic checks and lightweight local interfaces. Run the commands below from the project root.
 
 ## Raw Source Rules
 
@@ -44,15 +44,15 @@ Remote URLs are recognized as ingest intent only. Ingest v2 does not fetch, craw
 
 1. Identify whether the input is Markdown, plain text, pasted text, already converted Markdown, remote URL, or unsupported.
 2. If the input is a remote URL, stop and ask for pasted text, a local Markdown/text file, or a converted Markdown artifact.
-3. For local Markdown/text input, run `python tools/prepare_ingest.py <input> --json`.
+3. For local Markdown/text input, run `python tools/prepare_ingest.py --repo-root examples/ingest <input> --json` from the project root.
 4. Use the fixture source template at `templates/source.md`. The full project root has additional domain-specific source templates.
 5. Read `wiki/index.md`, `wiki/overview.md`, and relevant existing pages before editing.
 6. Choose a canonical source ID in kebab-case.
-7. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction, then run `python tools/prepare_ingest.py raw/originals/<source-id>.md --json`.
+7. If the input is pasted text, save it verbatim to `raw/originals/<source-id>.md` before extraction, then run `python tools/prepare_ingest.py --repo-root examples/ingest raw/originals/<source-id>.md --json`.
 8. Check whether the raw artifact already exists.
 9. Compute the artifact hash from the local raw artifact.
-10. Run `python tools/manifest.py check` and `python tools/manifest.py find --source-id <source-id>`, `python tools/manifest.py find --hash <sha256:...>`, or `python tools/manifest.py find --path <raw-or-converted-path>` before adding a new manifest entry.
-11. After the final raw path/source ID/hash are fixed, use `python tools/manifest.py add ...` to update `raw/source-manifest.jsonl`.
+10. Run `python tools/manifest.py --repo-root examples/ingest check` and the corresponding `find` subcommand before adding a new manifest entry.
+11. After the final raw path/source ID/hash are fixed, use `python tools/manifest.py --repo-root examples/ingest add ...` to update `raw/source-manifest.jsonl`.
 12. Report and stop if the source is unsupported, duplicated, missing, or ambiguous.
 
 ### Page Updates
@@ -78,7 +78,7 @@ Update `wiki/overview.md` only when the source changes the broader knowledge map
 
 ### Post-Ingest Validation
 
-Run `python tools/health.py` after edits. If health fails, fix structural issues before reporting completion.
+Run `python tools/health.py --repo-root examples/ingest` from the project root after edits. If health fails, fix structural issues before reporting completion.
 
 ### Completion Report
 
@@ -101,7 +101,7 @@ Entities touched:
 Unresolved issues:
 - none | ...
 Verification:
-- python tools/health.py: ok
+- python tools/health.py --repo-root examples/ingest: ok
 ```
 
 If ingest cannot complete, report:
@@ -126,21 +126,21 @@ Next step: <specific user action or agent action>
 
 ## Health Requirements
 
-Run `python tools/health.py` after structural edits and after ingest. Use `python tools/health.py --json` when machine-readable evidence is useful.
-Run `python tools/lint.py` after documentation or wiki content changes that may leave empty sections, stale index text, or orphan pages.
+Run `python tools/health.py --repo-root examples/ingest` after structural edits and after ingest. Add `--json` when machine-readable evidence is useful.
+Run `python tools/lint.py --repo-root examples/ingest` after documentation or wiki content changes that may leave empty sections, stale index text, or orphan pages.
 
 ## Local Interfaces
 
-- `python tools/lint.py` checks semantic-lite maintenance issues in the fixture.
-- `python tools/build_graph.py` writes fixture graph artifacts under `graph/`.
-- `python tools/prepare_ingest.py <input> --json` performs local Markdown/text preflight without creating wiki pages.
-- `python tools/prepare_ingest.py <input> --report graph/ingest-prep-report.md` may write a preflight report under `graph/`.
-- `python tools/manifest.py check` validates `raw/source-manifest.jsonl`.
-- `python tools/manifest.py find --source-id <source-id>` looks up manifest entries by source ID.
-- `python tools/manifest.py find --hash <sha256:...>` looks up manifest entries by content hash.
-- `python tools/manifest.py find --path <raw-or-converted-path>` looks up manifest entries by raw, converted, or converted-from path.
-- `python tools/manifest.py add ...` appends one finalized manifest entry.
-- `python tools/convert.py <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
+- `python tools/lint.py --repo-root examples/ingest` checks semantic-lite maintenance issues in the fixture.
+- `python tools/build_graph.py --repo-root examples/ingest` writes fixture graph artifacts under `examples/ingest/graph/`.
+- `python tools/prepare_ingest.py --repo-root examples/ingest <input> --json` performs local Markdown/text preflight without creating wiki pages.
+- `python tools/prepare_ingest.py --repo-root examples/ingest <input> --report graph/ingest-prep-report.md` may write a preflight report under the fixture's `graph/` directory.
+- `python tools/manifest.py --repo-root examples/ingest check` validates the fixture manifest.
+- `python tools/manifest.py --repo-root examples/ingest find --source-id <source-id>` looks up entries by source ID.
+- `python tools/manifest.py --repo-root examples/ingest find --hash <sha256:...>` looks up entries by content hash.
+- `python tools/manifest.py --repo-root examples/ingest find --path <raw-or-converted-path>` looks up entries by path.
+- `python tools/manifest.py --repo-root examples/ingest add ...` appends one finalized manifest entry.
+- `python tools/convert.py --repo-root examples/ingest <input> --out raw/converted/<file>` converts supported local Markdown/text inputs only.
 
 Conversion does not equal ingest. After using `convert.py`, agents must still update `raw/source-manifest.jsonl`, wiki pages, index, and log before claiming a source has entered the fixture.
 

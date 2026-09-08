@@ -189,7 +189,7 @@ python -m unittest discover -s tests
 python tools/lint.py
 python tools/health.py
 python tools/build_graph.py
-cd examples/ingest && python tools/lint.py
-cd examples/ingest && python tools/health.py
-cd examples/ingest && python tools/build_graph.py
+python tools/lint.py --repo-root examples/ingest
+python tools/health.py --repo-root examples/ingest
+python tools/build_graph.py --repo-root examples/ingest
 ```

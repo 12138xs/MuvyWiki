@@ -2,7 +2,7 @@
 
 This directory stores generated graph outputs.
 
-`python tools/build_graph.py` generates these files from fixture wiki frontmatter, wikilinks, source IDs, related IDs, and raw paths:
+From the project root, `python tools/build_graph.py --repo-root examples/ingest` generates these files from fixture wiki frontmatter, wikilinks, source IDs, related IDs, and raw paths:
 
 - `graph.json` - machine-readable nodes and edges.
 - `graph.html` - self-contained visualization.

@@ -41,8 +41,8 @@ BASE_SOURCE_SECTIONS = [
 class IngestExampleTests(unittest.TestCase):
     def test_example_fixture_is_healthy(self):
         result = subprocess.run(
-            [sys.executable, "tools/health.py"],
-            cwd=EXAMPLE,
+            [sys.executable, "tools/health.py", "--repo-root", str(EXAMPLE)],
+            cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -50,6 +50,9 @@ class IngestExampleTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("MuvyWiki health: ok", result.stdout)
+
+    def test_example_fixture_reuses_root_tools(self):
+        self.assertEqual([], list((EXAMPLE / "tools").glob("*.py")))
 
     def test_example_fixture_has_ingest_artifacts(self):
         self.assertTrue((EXAMPLE / "wiki/sources/tiny-rag-note.md").exists())

@@ -89,8 +89,8 @@ class DocsInterfaceTests(unittest.TestCase):
             self.assertNotIn("reserved", text.lower())
             self.assertNotIn("exit code `3`", text)
         self.assertIn("lightweight local interfaces", agents)
-        self.assertIn("python tools/build_graph.py", graph)
-        self.assertIn("python tools/convert.py raw/originals/example.txt", readme_snapshot)
+        self.assertIn("python tools/build_graph.py --repo-root examples/ingest", graph)
+        self.assertIn("python tools/query.py --repo-root examples/ingest", readme_snapshot)
 
     def test_raw_and_graph_docs_describe_current_outputs(self):
         raw = self.read("raw/README.md")
@@ -112,7 +112,7 @@ class DocsInterfaceTests(unittest.TestCase):
         self.assertIn("python -m unittest tests/test_docs_interfaces.py", agents)
         self.assertIn("python tools/lint.py", agents)
         self.assertIn("python tools/build_graph.py", agents)
-        self.assertIn("cd examples/ingest && python tools/lint.py", agents)
+        self.assertIn("python tools/lint.py --repo-root examples/ingest", agents)
         self.assertIn("docs/superpowers/specs", guide)
         self.assertIn("相关目录 README", guide)
 
@@ -159,7 +159,7 @@ class DocsInterfaceTests(unittest.TestCase):
 
     def test_ingest_example_documents_duplicate_preflight_exit_code(self):
         readme = self.read("examples/ingest/README.md")
-        self.assertIn("python tools/prepare_ingest.py raw/originals/tiny-rag-note.md", readme)
+        self.assertIn("python tools/prepare_ingest.py --repo-root examples/ingest raw/originals/tiny-rag-note.md", readme)
         self.assertIn("expected to exit `1`", readme)
 
     def test_query_and_synthesis_interfaces_are_documented(self):
@@ -193,6 +193,9 @@ class DocsInterfaceTests(unittest.TestCase):
             "python tools/manifest.py find --source-id",
             "python tools/manifest.py find --hash",
             "python tools/manifest.py find --path",
+            "python tools/manifest.py --repo-root examples/ingest find --source-id",
+            "python tools/manifest.py --repo-root examples/ingest find --hash",
+            "python tools/manifest.py --repo-root examples/ingest find --path",
         )
         for doc in docs:
             with self.subTest(doc=doc):
